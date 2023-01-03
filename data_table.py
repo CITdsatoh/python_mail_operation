@@ -31,12 +31,20 @@ class DataTable(tk.Frame):
      
      self.__col_names=("選択","No.","メールアドレス","宛名","累積メール数","メールの取り扱い")
      self.__col_widths=(72,72,240,240,256,240)
-     self.__table=ttk.Treeview(self,columns=self.__col_names,height=20)
+     self.__table=ttk.Treeview(self,columns=self.__col_names,height=15)
+     
+     #ctrlが押されているか,shiftが押されているかを表すフラグ
      self.__ctrl_pressing=False
-     self.bind("<KeyPress>",self.judge_ctrl_press)
-     self.bind("<KeyRelease>",self.judge_ctrl_release)
-     self.__table.bind("<KeyPress>",self.judge_ctrl_press)
-     self.__table.bind("<KeyRelease>",self.judge_ctrl_release)
+     self.__shift_pressing=False
+     
+     #ctrlとshiftが同時に押されたときに実行される範囲選択の行番号を格納する
+     #今は何も選択されていないのでNoneを格納しておく
+     self.__chosen_range=[None,None]
+     
+     self.bind("<KeyPress>",self.judge_ctrl_shift_press)
+     self.bind("<KeyRelease>",self.judge_ctrl_shift_release)
+     self.__table.bind("<KeyPress>",self.judge_ctrl_shift_press)
+     self.__table.bind("<KeyRelease>",self.judge_ctrl_shift_release)
      self.mk_table()
      self.__table.focus_set()
    
@@ -85,11 +93,36 @@ class DataTable(tk.Frame):
    def table_operation(self,event):
      try:
        table_id=int(self.__table.identify_row(event.y))
+       #ctrlボタンが押されている
        if self.__ctrl_pressing:
-         self.change_check(table_id)
+         #両方とも押されているとき(範囲選択）
+         if self.__shift_pressing:
+            #選択範囲の行番号を格納(0番目は範囲の開始,1番目は範囲の終了)
+            self.__chosen_range[0]=self.__chosen_range[1]
+            self.__chosen_range[1]=table_id
+            #0番目がNoneではない、つまり,範囲の開始と終了の両方が定まったとき実行(0番目がNoneならまだ開始の行しか定まっていないということ）
+            if self.__chosen_range[0] is not None:
+               start=min(self.__chosen_range[0],self.__chosen_range[1])
+               end=max(self.__chosen_range[0],self.__chosen_range[1])+1
+               current_chosen=[self.__mail_info[i].current_row_checked for i in range(start,end)]
+               for one_row_id in range(start,end):
+                  if all(current_chosen) or not any(current_chosen):
+                    self.change_check(one_row_id)   
+                    continue
+                  check_str=self.__mail_info[one_row_id].enable_check()
+                  self.__table.set(one_row_id,self.__col_names[0],check_str)
+         #ctrlしか押されていないとき
+         else:
+            self.change_check(table_id)
+            self.__chosen_range[1]=table_id
+       #どっちも押されていないとき
        else:
+         self.all_disable_check()
+         self.__chosen_range=[None,None]
          self.mail_state_change(table_id)
      #テーブルの列以外が触れられた時,identify_rowメソッドは数字以外の文字列を返すため,このエラーが発生する
+     #その際は何もしなくてよいので例外を握りつぶす
+     #何もキーを押していない状態で,テーブルの列以外が押された場合は,範囲選択を解除する
      #その際,テーブルの列以外が触れられた時は,特に何もしないので,握りつぶす
      except ValueError:
        pass
@@ -97,18 +130,24 @@ class DataTable(tk.Frame):
        self.__table.selection_remove(self.__table.selection())
     
      
-   #Ctrlキーが押されているかを判別するための必要
+   #Ctrlキー、あるいはshiftが押されているかを判別するための必要
    #ctrlが押されたらTrueにする
-   def judge_ctrl_press(self,event):
+   def judge_ctrl_shift_press(self,event):
      pressed_key=event.keysym
      if pressed_key == "Control_L":
        self.__ctrl_pressing=True
+     if pressed_key == "Shift_L":
+       self.__shift_pressing=True
+     
    
    #ctrlからボタンが離されたらFalseにする
-   def judge_ctrl_release(self,event):
+   def judge_ctrl_shift_release(self,event):
      release_key=event.keysym
      if release_key == "Control_L":
        self.__ctrl_pressing=False
+     if release_key == "Shift_L":
+       self.__shift_pressing=False
+   
    
    
    def mail_state_change(self,table_id):
@@ -129,7 +168,6 @@ class DataTable(tk.Frame):
          self.__has_changed_unsaved=True
          one_mail_info.re_set_state(new_state)
          self.__table.set(table_id,self.__col_names[5],new_state+"(未反映)")
-   
    
    
    def all_enable_check(self):
@@ -172,6 +210,17 @@ class DataTable(tk.Frame):
       #再び読み取り専用に戻す
       os.chmod(path=self.__backup_file,mode=stat.S_IREAD)
     
+    now_time=datetime.now()
+    backup_log_dir=self.__backup_file[0:self.__backup_file.rindex("\\")+1]+"backup"
+    now_time_str="%d%02d%02d%02d%02d%02d"%(now_time.year,now_time.month,now_time.day,now_time.hour,now_time.minute,now_time.second)
+    backup_log_file=backup_log_dir+"\\outlook_mail_dest_list_"+now_time_str+"_backup.csv"
+    try:
+      shutil.copyfile(self.__original_file,backup_log_file)
+    except OSError:
+      pass
+    else:
+      os.chmod(path=backup_log_file,mode=stat.S_IREAD)
+    
     #その後未反映ラベルを解除する
     self.__has_changed_unsaved=False
     for table_id in range(0,len(self.__mail_info)):
@@ -200,7 +249,7 @@ class DataTable(tk.Frame):
      new_header.append(header_items[0])
      new_header.append(header_items[1])
      now_date=datetime.now()
-     first_date="%4d/%2d/%2d"%(now_date.year,now_date.month,now_date.day)
+     first_date="%04d/%02d/%02d"%(now_date.year,now_date.month,now_date.day)
      last_date=first_date
      match_obj=re.findall("[0-9]{4}/[0-1]?[0-9]/[0-3]?[0-9]",header_items[3])
      if len(match_obj) != 0:
