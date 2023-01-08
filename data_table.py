@@ -8,13 +8,14 @@ import stat
 import shutil
 from datetime import datetime
 from one_mail_info import OneMailInfo,selectstatedialog
+from tkinter import messagebox
 
 class DataTable(tk.Frame):
 
    def __init__(self,master,original_file,backup_file):
     
      self.__master=master
-     super().__init__(self.__master,width=1024,height=384)
+     super().__init__(self.__master,width=1288,height=384)
      self.__original_file=original_file
      self.__backup_file=backup_file
      self.__read_file=self.__original_file if os.path.exists(self.__original_file) else self.__backup_file
@@ -24,13 +25,16 @@ class DataTable(tk.Frame):
      
      self.__mail_info=[]
      
+     self.__current_disp_info_ids=[]
+     
      self.__has_changed_unsaved=False
      
      for i in range(1,len(self.__file_contents)-1):
        self.__mail_info.append(OneMailInfo(self.__file_contents[i].strip("\n")))
+       
      
      self.__col_names=("選択","No.","メールアドレス","宛名","累積メール数","メールの取り扱い")
-     self.__col_widths=(72,72,240,240,256,240)
+     self.__col_widths=(72,128,256,256,288,288)
      self.__table=ttk.Treeview(self,columns=self.__col_names,height=15)
      
      #ctrlが押されているか,shiftが押されているかを表すフラグ
@@ -67,6 +71,7 @@ class DataTable(tk.Frame):
      
      #データの設定
      for table_id,one_mail_info in enumerate(self.__mail_info):
+       self.__current_disp_info_ids.append(table_id)
        self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
      
      
@@ -103,9 +108,25 @@ class DataTable(tk.Frame):
             #0番目がNoneではない、つまり,範囲の開始と終了の両方が定まったとき実行(0番目がNoneならまだ開始の行しか定まっていないということ）
             if self.__chosen_range[0] is not None:
                start=min(self.__chosen_range[0],self.__chosen_range[1])
-               end=max(self.__chosen_range[0],self.__chosen_range[1])+1
-               current_chosen=[self.__mail_info[i].current_row_checked for i in range(start,end)]
-               for one_row_id in range(start,end):
+               end=max(self.__chosen_range[0],self.__chosen_range[1])
+               
+               #現在表に表示されているのは,フィルターがかかっていて,IDが0番のものから最後まで必ずしも連続で並んでいるわけではないので
+               #現在,表示されている列のID番号を連続ではないが順番に格納しているcurrent_disp_info_idsを用いてインデックス情報を得る
+               #選択範囲の開始の行と終了の行がcurrent_disp_info_idsのどのインデックスに入っているかを調べる
+               start_index=self.__current_disp_info_ids.index(start)
+               end_index=self.__current_disp_info_ids.index(end)+1
+               
+               #今選ばれたところがすべて選択済みなのかあるいは未選択なのかを得る
+               #すでに選択済みのものばかりであれば,すべて選択を外し,すべて未選択であれば,選択済みにするが,
+               #複数選択したところが,選択済みのものと未選択のものが混じっている場合は,現在の状態に関係なく全部選択済みにする
+               #そのために現在の選択範囲がどうなっているかを調べている
+               #なお,フィルターがかかっているかもしれないので,表示されているところ(current_disp_info_ids)に入っている列番号のみを参照する
+               current_chosen=[self.__mail_info[index].current_row_checked for index in self.__current_disp_info_ids[start_index:end_index]]
+               
+               #配列current_disp_info_idsの開始の行が入っているインデックス番目から終了の行が入っているインデックス番号番目までの要素が現在の選択範囲となる
+               for index in range(start_index,end_index):
+                  #行番号
+                  one_row_id=self.__current_disp_info_ids[index]
                   if all(current_chosen) or not any(current_chosen):
                     self.change_check(one_row_id)   
                     continue
@@ -119,7 +140,7 @@ class DataTable(tk.Frame):
        else:
          self.all_disable_check()
          self.__chosen_range=[None,None]
-         self.mail_state_change(table_id)
+         self.mail_state_choose(table_id)
      #テーブルの列以外が触れられた時,identify_rowメソッドは数字以外の文字列を返すため,このエラーが発生する
      #その際は何もしなくてよいので例外を握りつぶす
      #何もキーを押していない状態で,テーブルの列以外が押された場合は,範囲選択を解除する
@@ -149,52 +170,89 @@ class DataTable(tk.Frame):
        self.__shift_pressing=False
    
    
+   def filter_table_display_row(self,conditions):
+    
+     for one_table_id in self.__current_disp_info_ids:
+       self.__table.delete(one_table_id)
+         
+     self.__current_disp_info_ids=[]
+     for table_id,one_mail_info in enumerate(self.__mail_info):
+       if one_mail_info.is_according_on_conditions(conditions):
+          self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
+          self.__current_disp_info_ids.append(table_id)
+       else:
+          one_mail_info.disable_check()
+          one_mail_info.cancel_renew_state()
+     
+     if len(self.__current_disp_info_ids) == 0:
+        messagebox.showerror("エラー","条件に当てはまる項目が1つもありませんでした!")
+        self.filter_remove()
+     else:
+        messagebox.showinfo("フィルター完了","%d件当てはまる項目が見つかりました"%(len(self.__current_disp_info_ids)))
+             
+     
+   def filter_remove(self):
+     for one_table_id in self.__current_disp_info_ids:
+        self.__table.delete(one_table_id)
+     self.__current_disp_info_ids=[]
+     
+     for table_id,one_mail_info in enumerate(self.__mail_info):
+       self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
+       self.__current_disp_info_ids.append(table_id)
+        
    
-   def mail_state_change(self,table_id):
+   def mail_state_choose(self,table_id):
      
      new_state=selectstatedialog(self,self.__mail_info[table_id])
      if len(new_state) != 0:
       self.__has_changed_unsaved=True
-      self.__mail_info[table_id].re_set_state(new_state)
       self.__table.set(table_id,self.__col_names[5],new_state+"(未反映)")
+      #メールの取り扱いについて,テーブルの表示は新しい状態にするが,実際の変更はまだされていないという状態にする
+      self.__mail_info[table_id].re_set_display_state(new_state)
    
    def change_check(self,table_id):
      new_check_str=self.__mail_info[table_id].change_check_state()
      self.__table.set(table_id,self.__col_names[0], new_check_str)
    
-   def set_multiples_data_new_state(self,new_state):
+   def mail_state_multiples_choose(self,new_state):
      for table_id,one_mail_info in enumerate(self.__mail_info):
        if one_mail_info.current_row_checked:
          self.__has_changed_unsaved=True
-         one_mail_info.re_set_state(new_state)
+         self.__mail_info[table_id].re_set_display_state(new_state)
          self.__table.set(table_id,self.__col_names[5],new_state+"(未反映)")
    
-   
+   #表示されているところだけチェックを入れる
    def all_enable_check(self):
-     for table_id,one_mail_info in enumerate(self.__mail_info):
-       check_str=one_mail_info.enable_check()
+     for table_id in self.__current_disp_info_ids:
+       check_str=self.__mail_info[table_id].enable_check()
        self.__table.set(table_id,self.__col_names[0],check_str)
    
+   #表示されているところだけチェックを外す
    def all_disable_check(self):
-     for table_id,one_mail_info in enumerate(self.__mail_info):
-       check_str=one_mail_info.disable_check()
+     for table_id in self.__current_disp_info_ids:
+       check_str=self.__mail_info[table_id].disable_check()
        self.__table.set(table_id,self.__col_names[0],check_str)
      
      self.__table.selection_remove(self.__table.selection())
-   
-   
+     
+       
    def fwrite(self):
     
     with open(self.__original_file,"w",encoding="utf_8_sig") as f:
    
        #ヘッダは元ファイルのまま書き込む
        f.write(self.__file_contents[0])
-       for one_mail in self.__mail_info:
-         f.write(str(one_mail)+"\n")
+       for table_id,one_mail_info in enumerate(self.__mail_info):
+         one_mail_info.renew_state()
+         f.write(str(self.__mail_info[table_id])+"\n")
+         if table_id in self.__current_disp_info_ids:
+           self.__table.set(table_id,self.__col_names[5],self.__mail_info[table_id].state)
        #フッター（合計）もそのまま書き込む
        f.write(self.__file_contents[-1])
        f.close()
-       
+    
+    self.__table.selection_remove(self.__table.selection())  
+     
     #バックアップファイルの方は安全上読み取り専用にしている。なのでここでいったん読み取り専用を解除する
     #だがバックアップファイル自体がない時はモード変更の仕様がないので,そのまま握りつぶす   
     try:
@@ -221,14 +279,9 @@ class DataTable(tk.Frame):
     else:
       os.chmod(path=backup_log_file,mode=stat.S_IREAD)
     
-    #その後未反映ラベルを解除する
+    #その後未反映ラベルを解除し,メールの取り扱い状態を変更する
     self.__has_changed_unsaved=False
-    for table_id in range(0,len(self.__mail_info)):
-      one_mail_state=self.__table.item(table_id,"values")[5]
-      if re.search("(未反映)",one_mail_state):
-        self.__table.set(table_id,self.__col_names[5],one_mail_state.strip("(未反映)"))
     
-    self.__table.selection_remove(self.__table.selection())
    
   
    @property
