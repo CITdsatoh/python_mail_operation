@@ -25,9 +25,9 @@ class MailDataApplication(tk.Tk):
      self.__filter_btn=tk.Button(self,text="条件でフィルターする",font=("times",11))
      self.__filter_btn.bind("<Button-1>",self.table_filter)
      self.__filter_btn.place(x=768,y=128)
-     self.__filter_btn=tk.Button(self,text="フィルター解除",font=("times",11))
-     self.__filter_btn.bind("<Button-1>",self.table_remove_filter)
-     self.__filter_btn.place(x=1024,y=128)
+     self.__filter_remove_btn=tk.Button(self,text="フィルター解除",font=("times",11))
+     self.__filter_remove_btn.bind("<Button-1>",self.table_remove_filter)
+     self.__filter_remove_btn.place(x=1024,y=128)
      
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
      self.__data_table.place(x=16,y=160)
@@ -76,6 +76,8 @@ class MailDataApplication(tk.Tk):
    def button_state_change(self):
      self.__all_button_enable=not(self.__all_button_enable)
      state_str="normal" if self.__all_button_enable else "disable"
+     self.__filter_btn["state"]=state_str
+     self.__filter_remove_btn["state"]=state_str
      self.__open_original_file_button["state"]=state_str
      self.__outlook_exe_button["state"]=state_str
      self.__set_save_button["state"]=state_str
@@ -123,12 +125,14 @@ class MailDataApplication(tk.Tk):
           self.__data_table.all_disable_check()
    
    def table_filter(self,event):
-     conditions=askfilterpattern(self.__data_table)
-     if conditions is not None:
-        self.__data_table.filter_table_display_row(conditions)
+     if self.__all_button_enable:
+       conditions=askfilterpattern(self.__data_table)
+       if conditions is not None:
+          self.__data_table.filter_table_display_row(conditions)
    
    def table_remove_filter(self,event):
-      self.__data_table.filter_remove()
+      if self.__all_button_enable:
+        self.__data_table.filter_remove()
       
              
       
@@ -214,7 +218,7 @@ class MailDataApplication(tk.Tk):
      mail_csv_file=self.__class__.get_desktop_dir()+"\\outlook_mail_dest_list.csv"
      mail_csv_backup_file=self.__class__.get_roming_dir()+"\\outlook_mail_dest_list.csv"
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
-     self.__data_table.place(x=0,y=128)
+     self.__data_table.place(x=0,y=160)
      self.update() 
      
         
