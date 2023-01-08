@@ -7,6 +7,7 @@ import re
 from tkinter import messagebox
 from data_table import DataTable
 from thread_manage import ThreadManage
+from filter_dialog import askfilterpattern
 
 class MailDataApplication(tk.Tk):
  
@@ -21,8 +22,15 @@ class MailDataApplication(tk.Tk):
      mail_csv_file=self.__class__.get_desktop_dir()+"\\outlook_mail_dest_list.csv"
      mail_csv_backup_file=self.__class__.get_roming_dir()+"\\outlook_mail_dest_list.csv"
      
+     self.__filter_btn=tk.Button(self,text="条件でフィルターする",font=("times",11))
+     self.__filter_btn.bind("<Button-1>",self.table_filter)
+     self.__filter_btn.place(x=768,y=128)
+     self.__filter_btn=tk.Button(self,text="フィルター解除",font=("times",11))
+     self.__filter_btn.bind("<Button-1>",self.table_remove_filter)
+     self.__filter_btn.place(x=1024,y=128)
+     
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
-     self.__data_table.place(x=0,y=128)
+     self.__data_table.place(x=16,y=160)
      
      
      self.__sub_explaination_label=tk.Label(self,text="以下のボタンを押すと,チェックマークを付けた宛先に対して一括で「保存」か「完全削除」か「削除済みへ移動」かを自動で設定しなおし（選択を変更し）ます。\nただし,こちらも選択のみで,保存は「設定を保存」ボタンを押してください.",font=("times",12,"bold"))
@@ -86,7 +94,7 @@ class MailDataApplication(tk.Tk):
        para_start=button_str.index("「")
        para_end=button_str.index("」")
        new_state=button_str[para_start+1:para_end]
-       self.__data_table.set_multiples_data_new_state(new_state)
+       self.__data_table.mail_state_multiples_choose(new_state)
     
    
    
@@ -113,6 +121,16 @@ class MailDataApplication(tk.Tk):
           self.__data_table.all_enable_check()
        elif new_state == "外す":
           self.__data_table.all_disable_check()
+   
+   def table_filter(self,event):
+     conditions=askfilterpattern(self.__data_table)
+     if conditions is not None:
+        self.__data_table.filter_table_display_row(conditions)
+   
+   def table_remove_filter(self,event):
+      self.__data_table.filter_remove()
+      
+             
       
    def open_original_file(self,event):
      if self.__all_button_enable:
