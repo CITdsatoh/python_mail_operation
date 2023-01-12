@@ -63,8 +63,15 @@ class OneMailInfo:
    #表示されている状態を正式に反映する
    def renew_state(self):
      self.__state=self.__display_only_state
+   
+   def is_according_on_conditions(self,conditions:dict,type:str):
+      if type == "pattern":
+         return self.is_according_on_pattern_conditions(conditions)
+      elif type == "num":
+         return self.is_according_on_number_conditions(conditions)
+      return True
        
-   def is_according_on_conditions(self,conditions:dict):
+   def is_according_on_pattern_conditions(self,conditions:dict):
       f_pattern=conditions["pattern"]
       f_basement=self.__sender_name if conditions["basement"] == "name" else self.__mail_address
       #メールアドレスや宛名側の空白を取り除く指定があった場合,ここで取り除く
@@ -81,6 +88,14 @@ class OneMailInfo:
       return f_pattern.startswith("n")
      
    
+   def is_according_on_number_conditions(self,conditions:dict):
+     start=conditions["start"]
+     end=conditions["end"]
+     is_larger_than_start=(start < self.__mail_num) if conditions["start_pattern"] == "gt" else (start <= self.__mail_num)
+     is_less_than_end=(self.__mail_num < end) if conditions["end_pattern"] == "lt" else (self.__mail_num <= end)
+     
+     #下限なしの時は0が,上限なしの時は代わりに-1が入っているので,そのときは件数を満たしている扱いする
+     return (is_larger_than_start or start == 0) and (is_less_than_end or end == -1)
    
    #変更結果をファイルに書き込む際の文字列
    def __str__(self):
