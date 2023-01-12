@@ -170,14 +170,14 @@ class DataTable(tk.Frame):
        self.__shift_pressing=False
    
    
-   def filter_table_display_row(self,conditions):
+   def filter_table_display_row(self,conditions,type):
     
      for one_table_id in self.__current_disp_info_ids:
        self.__table.delete(one_table_id)
          
      self.__current_disp_info_ids=[]
      for table_id,one_mail_info in enumerate(self.__mail_info):
-       if one_mail_info.is_according_on_conditions(conditions):
+       if one_mail_info.is_according_on_conditions(conditions,type):
           self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
           self.__current_disp_info_ids.append(table_id)
        else:
