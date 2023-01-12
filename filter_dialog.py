@@ -301,10 +301,13 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
         if (start_pattern_num == 1 or end_pattern_num == 1) and (start == end):
            self.__warning_label["text"]="この場合,合致するものが1件も見つかりません\nもし,きっかり%d件のメールを表示させたい場合は,下限のほうは,「以上(を含む)」にし,\nなおかつ,上限のほうは,「以下(を含む)」にしてください!"%(start)
            return False
-        if start < 0 or end <= 0:
-           self.__warning_label["text"]="負の数が入力されています.\n必ず検索する際は左側(下限）は0以上,右側(上限)は1以上の正の数を入力してください!"
-           return False
-      
+          
+      #負数判定は,片方だけが入力されたときも行いたいのでここで行う
+      #int型としか比較できないのであらかじめいちいちint型かどうかを出す
+      if (type(start) == int and start < 0) or (type(end) == int and end <= 0):
+          self.__warning_label["text"]="負の数が入力されています.\n必ず検索する際は左側(下限）は0以上,右側(上限)は1以上の正の数を入力してください!"
+          return False
+          
       #ここからは正常終了時
       if start_pattern_num == 1:
          start_pattern="gt"
