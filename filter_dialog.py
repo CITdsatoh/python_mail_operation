@@ -30,7 +30,7 @@ class FilterMakeDialog(simpledialog.Dialog):
    def buttonbox(self):
    
      self.geometry("1056x608")
-     self.__header_label=tk.Label(self,text="絞り込み表示\nメール情報を以下に入力したパターンに合致するものに絞り込みます",font=("times",18,"bold"))
+     self.__header_label=tk.Label(self,text="絞り込み表示\n以下にて選択・入力したテキストとパターンに合致するメールアドレスまたは宛名の列にのみ\n表示を絞り込みます",font=("times",18,"bold"))
        
      self.__pos_neg_radio_var=tk.IntVar()
      self.__positive_pattern_radio=tk.Radiobutton(self,text="肯定",variable=self.__pos_neg_radio_var,value=1,font=("times",14),command=self.guide_change)
@@ -153,7 +153,8 @@ class FilterMakeDialog(simpledialog.Dialog):
      self.__filter_select.current(0)
      self.__filter_obj_select.current(0)
      self.__ignore_case_checkbox_var.set(False)
-     self.__ignore_space_checkbox.set(False)
+     self.__ignore_space_checkbox_var.set(False)
+     self.__ignore_char_width_checkbox_var.set(False)
      self.__pattern_entry.delete(0,tk.END)
      self.__entry_guide_label["text"]=self.__filter_guide_strs["p"]
      self.__warning_label["text"]=""
@@ -226,8 +227,138 @@ class FilterMakeDialog(simpledialog.Dialog):
    def __str__(self):
       return "hoge"
 
+class MailNumFilterMakeDialog(simpledialog.Dialog):
+
+   def __init__(self,parent,title=None):
+     
+     super().__init__(parent,title)
+   
+   def buttonbox(self):
+     self.geometry("1024x512")
+     self.__main_label=tk.Label(self,text="メールの数で絞り込み\n累積メール数が入力された数の範囲内であるものに絞り込みを行います\n左の入力欄は下限（以上）,右には上限(以下)を入力してください.\nなお,入力欄に何も入力しなかった場合は,メール数の下限(上限)はなしとみなします\nまた,ある特定の数きっかりの宛先を表示する場合,左右両入力欄に同じ数を入力して下さい.\n例えば,メール数がちょうど10件である宛先を見たい場合は両入力欄に10を入れてください",font=("helvetica",16,"bold"))
+     self.__main_label.place(x=8,y=8)
+     self.__guide_label=tk.Label(self,text="メール数が",font=("times",16))
+     self.__guide_label.place(x=16,y=256)
+     self.__start_entry=tk.Entry(self,width=6,font=("times",16))
+     self.__start_entry.place(x=128,y=256)
+     self.__start_num_label=tk.Label(self,text="件",font=("times",16))
+     self.__start_num_label.place(x=208,y=256)
+     self.__start_include_select=ttk.Combobox(self,height=2,values=("以上(を含む)","より多い(を含まない)"),font=("times",16),width=12,state="readonly")
+     self.__start_include_select.place(x=240,y=256)
+     self.__end_entry=tk.Entry(self,width=6,font=("times",16))
+     self.__end_entry.place(x=416,y=256)
+     self.__end_num_label=tk.Label(self,text="件",font=("times",16))
+     self.__end_num_label.place(x=492,y=256)
+     self.__end_include_select=ttk.Combobox(self,height=2,values=("以下(を含む)","未満(を含まない)"),font=("times",16),width=12,state="readonly")
+     self.__end_include_select.place(x=528,y=256)
+     
+     self.__last_guide_label=tk.Label(self,text="件のメールに絞り込む",font=("times",16))
+     self.__last_guide_label.place(x=128,y=288)
+     
+     self.__warning_label=tk.Label(self,text="",font=("helvetica",14,"bold"),fg="#ff0000")
+     self.__warning_label.place(x=128,y=320)
+     
+     self.__just_btn=tk.Button(self,text="入力された件数きっかりにする",font=("times",16))
+     self.__just_btn.place(x=64,y=400)
+     self.__just_btn.bind("<Button-1>",self.just_padding)
+     self.__reset_btn=tk.Button(self,text="設定をキャンセル",font=("times",16))
+     self.__reset_btn.place(x=400,y=400)
+     self.__reset_btn.bind("<Button-1>",self.reset_all_settings)
+     self.__ok_btn=tk.Button(self,text="OK",width=10, command=self.ok, default=tk.ACTIVE,font=("times",16))
+     self.__ok_btn.place(x=608,y=400)
+     self.__cancel_btn=tk.Button(self,text="Cancel", width=10, command=self.cancel,font=("times",16))
+     self.__cancel_btn.place(x=744,y=400)
+     self.__start_include_select.current(0)
+     self.__end_include_select.current(0)
+     
+     self.bind("<Return>", self.ok)
+     self.bind("<Escape>", self.cancel)
+   
+   def box(self):
+     return self
+   
+   def validate(self):
+    start=self.__start_entry.get()
+    end=self.__end_entry.get()
+    start_pattern="ge"
+    end_pattern="le"
+    
+    try:
+      #入力欄が空でなかった場合,intに変換する
+      start=start and int(start)
+      end=end and int(end)
+    except ValueError:
+      self.__warning_label["text"]="数値ではないものが入力されています.入力は数値のみにしてください!"
+      return False
+    else:
+      start_pattern_num=self.__start_include_select.current()
+      end_pattern_num=self.__end_include_select.current()
+      if type(start) == int and  type(end) == int:
+        if end < start:
+           self.__warning_label["text"]="下限の値が上限の値より大きいです.必ず下限の値は上限の値より同じか小さくしてください!"
+           return False
+           
+        if (start_pattern_num == 1 or end_pattern_num == 1) and (start == end):
+           self.__warning_label["text"]="この場合,合致するものが1件も見つかりません\nもし,きっかり%d件のメールを表示させたい場合は,下限のほうは,「以上(を含む)」にし,\nなおかつ,上限のほうは,「以下(を含む)」にしてください!"%(start)
+           return False
+        if start < 0 or end <= 0:
+           self.__warning_label["text"]="負の数が入力されています.\n必ず検索する際は左側(下限）は0以上,右側(上限)は1以上の正の数を入力してください!"
+           return False
+      
+      #ここからは正常終了時
+      if start_pattern_num == 1:
+         start_pattern="gt"
+      if end_pattern_num == 1:
+         end_pattern="lt"
+      
+      #空文字列(上限下限なし）の時は下限は0とみなす(0とみなすことで実質下限なしと同様)
+      #上限はは-1とみなす(これについては別に処理する)
+      start=start or 0
+      end=end or -1
+      
+      self.result={"start_pattern":start_pattern,"start":start,"end":end,"end_pattern":end_pattern}
+      return True
+    
+    return True
+  
+   def reset_all_settings(self,event): 
+     self.__start_include_select.current(0)
+     self.__end_include_select.current(0)
+     self.__start_entry.delete(0,tk.END)
+     self.__end_entry.delete(0,tk.END)   
+     self.__warning_label["text"]=""
+   
+   def just_padding(self,event):
+     self.__start_include_select.current(0)
+     self.__end_include_select.current(0)
+     self.__warning_label["text"]=""
+     start_num_str=self.__start_entry.get()
+     end_num_str=self.__end_entry.get()
+     #ここでは文字列を数値に変換したデータは直接利用しないが,実際に左右の入力欄に入力されている数字をそろえるために,ここで入力されたデータが数値かどうかを調べている
+     try:
+       #空文字列以外を変換
+       start_num_str and int(start_num_str)
+       end_num_str  and int(end_num_str)
+     except ValueError:
+       self.__warning_label["text"]="数値以外の値が入力されています.必ず数値を入力してください!"
+     else:
+       #空文字列でなかったら元の数はそのままで,空文字列だったほうには反対側の入力欄に入力されている数値を入れてあげる
+       #or演算子を用いることでどちらに数値が入力されているかをいちいち場合分けせずに記述することができる
+       start_num_str=start_num_str or end_num_str
+       end_num_str=end_num_str or start_num_str
+       self.__start_entry.delete(0,tk.END)
+       self.__end_entry.delete(0,tk.END)
+       self.__start_entry.insert(0,start_num_str)
+       self.__end_entry.insert(0,end_num_str)   
+     
+        
 
 def askfilterpattern(parent):
    
    fd=FilterMakeDialog(parent,"絞り込み条件の指定")
    return fd.result
+
+def askfiltermailnum(parent):
+   nfd=MailNumFilterMakeDialog(parent,"累積のメール数での絞り込み条件の指定")
+   return nfd.result
+ 
