@@ -80,6 +80,7 @@ class MailDataApplication(tk.Tk):
      self.__all_button_enable=not(self.__all_button_enable)
      state_str="normal" if self.__all_button_enable else "disable"
      self.__filter_btn["state"]=state_str
+     self.__num_filter_btn["state"]=state_str
      self.__filter_remove_btn["state"]=state_str
      self.__open_original_file_button["state"]=state_str
      self.__outlook_exe_button["state"]=state_str
