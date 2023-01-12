@@ -7,7 +7,7 @@ import re
 from tkinter import messagebox
 from data_table import DataTable
 from thread_manage import ThreadManage
-from filter_dialog import askfilterpattern
+from filter_dialog import askfilterpattern,askfiltermailnum
 
 class MailDataApplication(tk.Tk):
  
@@ -22,12 +22,15 @@ class MailDataApplication(tk.Tk):
      mail_csv_file=self.__class__.get_desktop_dir()+"\\outlook_mail_dest_list.csv"
      mail_csv_backup_file=self.__class__.get_roming_dir()+"\\outlook_mail_dest_list.csv"
      
-     self.__filter_btn=tk.Button(self,text="条件でフィルターする",font=("times",11))
+     self.__filter_btn=tk.Button(self,text="宛先またはメールアドレスをもとにフィルターする",font=("times",11))
      self.__filter_btn.bind("<Button-1>",self.table_filter)
-     self.__filter_btn.place(x=768,y=128)
+     self.__filter_btn.place(x=512,y=128)
+     self.__num_filter_btn=tk.Button(self,text="メールの件数をもとにフィルターする",font=("times",11))
+     self.__num_filter_btn.bind("<Button-1>",self.table_filter)
+     self.__num_filter_btn.place(x=896,y=128)
      self.__filter_remove_btn=tk.Button(self,text="フィルター解除",font=("times",11))
      self.__filter_remove_btn.bind("<Button-1>",self.table_remove_filter)
-     self.__filter_remove_btn.place(x=1024,y=128)
+     self.__filter_remove_btn.place(x=1200,y=128)
      
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
      self.__data_table.place(x=16,y=160)
@@ -126,9 +129,17 @@ class MailDataApplication(tk.Tk):
    
    def table_filter(self,event):
      if self.__all_button_enable:
-       conditions=askfilterpattern(self.__data_table)
+       conditions=None
+       type="pattern"
+       if "宛先またはメールアドレス" in event.widget["text"]:
+         conditions=askfilterpattern(self.__data_table)
+       elif "メールの件数" in event.widget["text"]:
+         conditions=askfiltermailnum(self.__data_table)
+         type="num"
+         
+         
        if conditions is not None:
-          self.__data_table.filter_table_display_row(conditions)
+          self.__data_table.filter_table_display_row(conditions,type)
    
    def table_remove_filter(self,event):
       if self.__all_button_enable:
