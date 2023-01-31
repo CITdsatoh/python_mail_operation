@@ -24,20 +24,20 @@ class MailDataApplication(tk.Tk):
      
      self.__filter_btn=tk.Button(self,text="宛先またはメールアドレスをもとにフィルターする",font=("times",11))
      self.__filter_btn.bind("<Button-1>",self.table_filter)
-     self.__filter_btn.place(x=512,y=128)
+     self.__filter_btn.place(x=512,y=112)
      self.__num_filter_btn=tk.Button(self,text="メールの件数をもとにフィルターする",font=("times",11))
      self.__num_filter_btn.bind("<Button-1>",self.table_filter)
-     self.__num_filter_btn.place(x=896,y=128)
+     self.__num_filter_btn.place(x=896,y=112)
      self.__filter_remove_btn=tk.Button(self,text="フィルター解除",font=("times",11))
      self.__filter_remove_btn.bind("<Button-1>",self.table_remove_filter)
-     self.__filter_remove_btn.place(x=1200,y=128)
+     self.__filter_remove_btn.place(x=1200,y=112)
      
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
-     self.__data_table.place(x=16,y=160)
+     self.__data_table.place(x=16,y=144)
      
      
      self.__sub_explaination_label=tk.Label(self,text="以下のボタンを押すと,チェックマークを付けた宛先に対して一括で「保存」か「完全削除」か「削除済みへ移動」かを自動で設定しなおし（選択を変更し）ます。\nただし,こちらも選択のみで,保存は「設定を保存」ボタンを押してください.",font=("times",12,"bold"))
-     self.__sub_explaination_label.place(x=32,y=480)
+     self.__sub_explaination_label.place(x=32,y=504)
      self.__all_check_button=tk.Button(self,text="すべてチェックを入れる",font=("times",11))
      self.__all_check_button.bind("<Button-1>",self.change_check)
      self.__all_check_button.place(x=224,y=560)
@@ -64,11 +64,17 @@ class MailDataApplication(tk.Tk):
      
      self.__set_save_button=tk.Button(self,text="設定を保存",font=("times",12))
      self.__set_save_button.bind("<Button-1>",self.save_file)
-     self.__set_save_button.place(x=384,y=656)
+     self.__set_save_button.place(x=128,y=656)
+     
+     self.__restore_tmp_state_button=tk.Button(self,text="未反映の設定を変更前に戻す(設定の保存後はできません)",font=("times",12))
+     self.__restore_tmp_state_button.bind("<Button-1>",self.restore_tmp_state)
+     self.__restore_tmp_state_button.place(x=256,y=656)
+     
      self.__exit_button=tk.Button(self,text="終了",font=("times",12))
      self.__exit_button.bind("<Button-1>",self.exit)
      self.__exit_button.place(x=736,y=656)
      self.__all_button_enable=True
+     
      self.protocol("WM_DELETE_WINDOW", self.exit)
      self.__data_table.mainloop()
      self.mainloop()
@@ -79,9 +85,6 @@ class MailDataApplication(tk.Tk):
    def button_state_change(self):
      self.__all_button_enable=not(self.__all_button_enable)
      state_str="normal" if self.__all_button_enable else "disable"
-     self.__filter_btn["state"]=state_str
-     self.__num_filter_btn["state"]=state_str
-     self.__filter_remove_btn["state"]=state_str
      self.__open_original_file_button["state"]=state_str
      self.__outlook_exe_button["state"]=state_str
      self.__set_save_button["state"]=state_str
@@ -91,7 +94,7 @@ class MailDataApplication(tk.Tk):
      self.__mail_save_button["state"]=state_str
      self.__mail_delete_button["state"]=state_str
      self.__mail_move_button["state"]=state_str
-     
+     self.__restore_tmp_state_button["state"]=state_str
      
    
    def set_state(self,event):
@@ -129,22 +132,20 @@ class MailDataApplication(tk.Tk):
           self.__data_table.all_disable_check()
    
    def table_filter(self,event):
-     if self.__all_button_enable:
-       conditions=None
-       type="pattern"
-       if "宛先またはメールアドレス" in event.widget["text"]:
-         conditions=askfilterpattern(self.__data_table)
-       elif "メールの件数" in event.widget["text"]:
-         conditions=askfiltermailnum(self.__data_table)
-         type="num"
-         
-         
-       if conditions is not None:
-          self.__data_table.filter_table_display_row(conditions,type)
+     
+     conditions=None
+     type="pattern"
+     if "宛先またはメールアドレス" in event.widget["text"]:
+       conditions=askfilterpattern(self.__data_table)
+     elif "メールの件数" in event.widget["text"]:
+       conditions=askfiltermailnum(self.__data_table)
+       type="num"
+             
+     if conditions is not None:
+       self.__data_table.filter_table_display_row(conditions,type)
    
    def table_remove_filter(self,event):
-      if self.__all_button_enable:
-        self.__data_table.filter_remove()
+     self.__data_table.filter_remove()
       
              
       
@@ -233,23 +234,35 @@ class MailDataApplication(tk.Tk):
      self.__data_table.place(x=0,y=160)
      self.update() 
      
+   
+   def restore_tmp_state(self,event):
+     if self.__all_button_enable:
+       if self.__data_table.has_changed_unsaved:
+          self.__data_table.cancel_changing_renew_state()   
+       else:
+          messagebox.showerror("エラー","ファイルに書き込んで保存され反映したものに関しては戻せません\n(戻せるのはメールの取り扱いの設定変更後、ファイルに書き込んでいない未反映のものに限ります)")
+      
         
    def exit(self,event=None):
      if self.__all_button_enable:
-       #設定が未反映のまま終了ボタンか「×」ボタンが押されたとき,保存されていない旨をユーザーに示し,保存するかどうかを聞く
-       do_save=False
        
-       #こちらは,ファイル保存時にエラーが発生していないかどうかを確認し,保存時にエラーが発生したら閉じないようにするための変数
-       is_close_ok=True
-       
-       if self.__data_table.has_changed_unsaved:
-          do_save=messagebox.askyesno("設定の保存","メールの取り扱いに関する設定がまだ選択しただけであって,設定は保存されてません。保存しますか?")
-       
-       if do_save:
-          is_close_ok=self.save_file()
-          
-       if is_close_ok:
+      #設定が未反映のまま終了ボタンか「×」ボタンが押されたとき,保存されていない旨をユーザーに示し,保存するかどうかを聞く
+      do_save=False
+         
+      #こちらは,ファイル保存時にエラーが発生していないかどうかを確認し,保存時にエラーが発生したら閉じないようにするための変数
+      is_close_ok=True
+         
+      if self.__data_table.has_changed_unsaved:
+        do_save=messagebox.askyesno("設定の保存","メールの取り扱いに関する設定がまだ選択しただけであって,設定は保存されてません。保存しますか?")
+         
+      if do_save:
+        is_close_ok=self.save_file()
+            
+      if is_close_ok:
+        try:
           self.destroy()
+        finally:
+          self.__data_table.create_backup_file()
          
        
        
