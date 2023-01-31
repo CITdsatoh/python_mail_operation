@@ -229,6 +229,10 @@ class FilterMakeDialog(simpledialog.Dialog):
 
 class MailNumFilterMakeDialog(simpledialog.Dialog):
 
+   
+   LABEL_NAMES=("累積(含完全削除済)の","現存する(両フォルダ)","受信フォルダの","削除済みフォルダの")
+   ITEM_NAMES=("cumulative","exists","receive","delete")
+   
    def __init__(self,parent,title=None):
      
      super().__init__(parent,title)
@@ -237,42 +241,55 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
      self.geometry("1024x512")
      self.__main_label=tk.Label(self,text="メールの数で絞り込み\n累積メール数が入力された数の範囲内であるものに絞り込みを行います\n左の入力欄は下限（以上）,右には上限(以下)を入力してください.\nなお,入力欄に何も入力しなかった場合は,メール数の下限(上限)はなしとみなします\nまた,ある特定の数きっかりの宛先を表示する場合,左右両入力欄に同じ数を入力して下さい.\n例えば,メール数がちょうど10件である宛先を見たい場合は両入力欄に10を入れてください",font=("helvetica",16,"bold"))
      self.__main_label.place(x=8,y=8)
-     self.__guide_label=tk.Label(self,text="メール数が",font=("times",16))
-     self.__guide_label.place(x=16,y=256)
+     
+     self.__pattern_choose_widget_var=tk.IntVar()
+     self.__cumulative_radiobutton=tk.Radiobutton(self,text="累積メール数(含:完全削除済み)",variable=self.__pattern_choose_widget_var,command=self.change_guide_text_label,value=0,font=("times",16))
+     self.__cumulative_radiobutton.place(x=64,y=160)
+     self.__exists_radiobutton=tk.Radiobutton(self,text="現存するメール数(受信フォルダ+削除済みフォルダ)",variable=self.__pattern_choose_widget_var,command=self.change_guide_text_label,value=1,font=("times",16))
+     self.__exists_radiobutton.place(x=448,y=160)
+     self.__receive_radiobutton=tk.Radiobutton(self,text="受信フォルダのみのメール数",variable=self.__pattern_choose_widget_var,command=self.change_guide_text_label,value=2,font=("times",16))
+     self.__receive_radiobutton.place(x=64,y=224)
+     self.__delete_radiobutton=tk.Radiobutton(self,text="削除済みフォルダのみのメール数",variable=self.__pattern_choose_widget_var,command=self.change_guide_text_label,value=3,font=("times",16))
+     self.__delete_radiobutton.place(x=448,y=224)
+     self.__pattern_choose_widget_var.set(0)
+     
+     self.__guide_label=tk.Label(self,text="累積メール数が",font=("times",16))
+     self.__guide_label.place(x=16,y=288)
      self.__start_entry=tk.Entry(self,width=6,font=("times",16))
-     self.__start_entry.place(x=128,y=256)
+     self.__start_entry.place(x=240,y=288)
      self.__start_num_label=tk.Label(self,text="件",font=("times",16))
-     self.__start_num_label.place(x=208,y=256)
+     self.__start_num_label.place(x=320,y=288)
      self.__start_include_select=ttk.Combobox(self,height=2,values=("以上(を含む)","より多い(を含まない)"),font=("times",16),width=12,state="readonly")
-     self.__start_include_select.place(x=240,y=256)
+     self.__start_include_select.place(x=352,y=288)
      self.__end_entry=tk.Entry(self,width=6,font=("times",16))
-     self.__end_entry.place(x=416,y=256)
+     self.__end_entry.place(x=528,y=288)
      self.__end_num_label=tk.Label(self,text="件",font=("times",16))
-     self.__end_num_label.place(x=492,y=256)
+     self.__end_num_label.place(x=604,y=288)
      self.__end_include_select=ttk.Combobox(self,height=2,values=("以下(を含む)","未満(を含まない)"),font=("times",16),width=12,state="readonly")
-     self.__end_include_select.place(x=528,y=256)
+     self.__end_include_select.place(x=640,y=288)
      
      self.__last_guide_label=tk.Label(self,text="件のメールに絞り込む",font=("times",16))
-     self.__last_guide_label.place(x=128,y=288)
+     self.__last_guide_label.place(x=128,y=320)
      
      self.__warning_label=tk.Label(self,text="",font=("helvetica",14,"bold"),fg="#ff0000")
-     self.__warning_label.place(x=128,y=320)
+     self.__warning_label.place(x=128,y=352)
      
      self.__just_btn=tk.Button(self,text="入力された件数きっかりにする",font=("times",16))
-     self.__just_btn.place(x=64,y=400)
+     self.__just_btn.place(x=64,y=432)
      self.__just_btn.bind("<Button-1>",self.just_padding)
      self.__reset_btn=tk.Button(self,text="設定をキャンセル",font=("times",16))
-     self.__reset_btn.place(x=400,y=400)
+     self.__reset_btn.place(x=400,y=432)
      self.__reset_btn.bind("<Button-1>",self.reset_all_settings)
      self.__ok_btn=tk.Button(self,text="OK",width=10, command=self.ok, default=tk.ACTIVE,font=("times",16))
-     self.__ok_btn.place(x=608,y=400)
+     self.__ok_btn.place(x=608,y=432)
      self.__cancel_btn=tk.Button(self,text="Cancel", width=10, command=self.cancel,font=("times",16))
-     self.__cancel_btn.place(x=744,y=400)
+     self.__cancel_btn.place(x=744,y=432)
      self.__start_include_select.current(0)
      self.__end_include_select.current(0)
      
      self.bind("<Return>", self.ok)
      self.bind("<Escape>", self.cancel)
+     self.bind("<KeyPress>",self.operation_rbtns_by_key)
    
    def box(self):
      return self
@@ -304,8 +321,8 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
           
       #負数判定は,片方だけが入力されたときも行いたいのでここで行う
       #int型としか比較できないのであらかじめいちいちint型かどうかを出す
-      if (type(start) == int and start < 0) or (type(end) == int and end <= 0):
-          self.__warning_label["text"]="負の数が入力されています.\n必ず検索する際は左側(下限）は0以上,右側(上限)は1以上の正の数を入力してください!"
+      if (type(start) == int and start < 0) or (type(end) == int and end < 0):
+          self.__warning_label["text"]="負の数が入力されています.\n必ず検索する際は左側(下限)と右側(上限)は0以上の正の数を入力してください!"
           return False
           
       #ここからは正常終了時
@@ -314,22 +331,30 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
       if end_pattern_num == 1:
          end_pattern="lt"
       
-      #空文字列(上限下限なし）の時は下限は0とみなす(0とみなすことで実質下限なしと同様)
-      #上限はは-1とみなす(これについては別に処理する)
-      start=start or 0
-      end=end or -1
+      #空文字列(上限下限なし）の時は下限上限を表す数としては-1を数値として入れておく(これについては別に処理する)
+      #もし,ここではlen関数を利用して空文字列であることを判定した場合,必ずしもstart,endという変数がstr型であるとは限らないのでエラーが出るかもしれない
+      #なので,type関数でstrであるかどうかを判定することで,空文字列か否かを判定する(ここの時点では,int型の変数または,str型の空文字列しか来ないため,strなら空文字列と判断できるから)
+      #またor演算子を使わない理由は空文字列だけではなく数値の0が入力されたときもFalseと判定されることによって,0という数値が入力された時も右辺の数(-1)が入ってしまうということを防ぐため
+      if type(start) == str:
+        start=-1
+      if type(end) == str:
+        end=-1
       
-      self.result={"start_pattern":start_pattern,"start":start,"end":end,"end_pattern":end_pattern}
+      mail_num_pattern=self.__class__.ITEM_NAMES[self.__pattern_choose_widget_var.get()]
+      
+      self.result={"mail_num_pattern":mail_num_pattern,"start_pattern":start_pattern,"start":start,"end":end,"end_pattern":end_pattern}
       return True
     
     return True
   
    def reset_all_settings(self,event): 
+     self.__pattern_choose_widget_var.set(0)
      self.__start_include_select.current(0)
      self.__end_include_select.current(0)
      self.__start_entry.delete(0,tk.END)
      self.__end_entry.delete(0,tk.END)   
      self.__warning_label["text"]=""
+     self.__guide_label["text"]=self.__class__.LABEL_NAMES[0]
    
    def just_padding(self,event):
      self.__start_include_select.current(0)
@@ -354,7 +379,28 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
        self.__start_entry.insert(0,start_num_str)
        self.__end_entry.insert(0,end_num_str)   
      
+   
+   def operation_rbtns_by_key(self,event):
+     pressed_key=event.keysym
+     if pressed_key == "Left" or pressed_key == "Right":
+        current_chosen_rbtn_index=self.__pattern_choose_widget_var.get()
+        next_chosen_rbtn_index=(current_chosen_rbtn_index-1)%4 if pressed_key == "Left" else (current_chosen_rbtn_index+1)%4 
+        self.__pattern_choose_widget_var.set(next_chosen_rbtn_index)
+        self.change_guide_text_label()
+     elif pressed_key == "Up" or pressed_key == "Down":
+        current_chosen_rbtn_index=self.__pattern_choose_widget_var.get()
+        up_or_down=int(current_chosen_rbtn_index/2)
+        left_or_right=current_chosen_rbtn_index%2
+        next_chosen_rbtn_index=((up_or_down-1)%2)*2+left_or_right if pressed_key == "Up" else ((up_or_down+1)%2)*2+left_or_right
+        self.__pattern_choose_widget_var.set(next_chosen_rbtn_index)
+        self.change_guide_text_label()
         
+    
+   
+   def change_guide_text_label(self):
+      self.__guide_label["text"]=self.__class__.LABEL_NAMES[self.__pattern_choose_widget_var.get()]
+     
+  
 
 def askfilterpattern(parent):
    
