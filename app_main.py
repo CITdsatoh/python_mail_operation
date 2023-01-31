@@ -16,7 +16,7 @@ if __name__ == "__main__":
     sub.geometry("1024x1024")
     messagebox.showerror("メール情報","outlookのメール情報がありません")
     sub.destroy()
-  except PermissonError:
+  except PermissionError:
     sub=tk.Tk()
     sub.geometry("1024x1024")
     messagebox.showerror("メール情報","outlookのメール情報にほかのプロセスがアクセス中です.")
