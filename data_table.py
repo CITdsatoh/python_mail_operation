@@ -6,6 +6,8 @@ import os
 import re
 import stat
 import shutil
+import pathlib
+import pickle
 from datetime import datetime
 from one_mail_info import OneMailInfo,selectstatedialog
 from tkinter import messagebox
@@ -15,26 +17,45 @@ class DataTable(tk.Frame):
    def __init__(self,master,original_file,backup_file):
     
      self.__master=master
-     super().__init__(self.__master,width=1288,height=384)
+     super().__init__(self.__master,width=1312,height=384)
      self.__original_file=original_file
      self.__backup_file=backup_file
      self.__read_file=self.__original_file if os.path.exists(self.__original_file) else self.__backup_file
-     one_file=open(self.__read_file,encoding="utf_8_sig")
-     self.__file_contents=one_file.readlines()
-     one_file.close()
+     self.__file_contents=[]
+     
+     one_file=None
+     
+     try:
+        one_file=open(self.__read_file,encoding="utf_8_sig")
+        self.__file_contents=one_file.readlines()
+     #原本もバックアップもどちらもなかった場合
+     except FileNotFoundError:
+        pickle_file="table_data_backup.pickle"
+        file_obj=open(pickle_file,"rb")
+        pickled_backup_obj=pickle.load()
+        file_obj.close()
+        self.__file_contents=pickled_backup_obj.get_file_contents()
+        pickled_backup_obj.restore_log_file()
+     finally:
+       one_file.close()
      
      self.__mail_info=[]
      
      self.__current_disp_info_ids=[]
      
+     #状態(内容)変更後に保存が反映されていないかどうかを示すフラグ
      self.__has_changed_unsaved=False
+     
+     #こちらは状態変更を保存後、あるいは何も変更が行われていないにもかかわらず,アプリを終了するときにいちいちバックアップを作るのは面倒
+     #ゆえに,内容の変更が保存された後,バックアップが作られたかどうかを示し,これがTrueならバックアップを作る
+     self.__once_saved_must_backup=False
      
      for i in range(1,len(self.__file_contents)-1):
        self.__mail_info.append(OneMailInfo(self.__file_contents[i].strip("\n")))
        
      
-     self.__col_names=("選択","No.","メールアドレス","宛名","累積メール数","メールの取り扱い")
-     self.__col_widths=(72,128,256,256,288,288)
+     self.__col_names=("選択","No.","メールアドレス","宛名","累積メール数","現存メール数","メールの取り扱い")
+     self.__col_widths=(48,48,240,240,272,272,192)
      self.__table=ttk.Treeview(self,columns=self.__col_names,height=15)
      
      #ctrlが押されているか,shiftが押されているかを表すフラグ
@@ -63,9 +84,11 @@ class DataTable(tk.Frame):
      
      headers=self.__class__.get_headers(self.__file_contents[0])
      
+     self.__table.heading("#0",text="\n\n",anchor=tk.CENTER)
      #テーブルののヘッダーの設定
      for col_name,header in zip(self.__col_names,headers):
       self.__table.heading(col_name,text=header,anchor=tk.CENTER)
+      
      
      
      
@@ -76,9 +99,10 @@ class DataTable(tk.Frame):
      
      
      #フォントの設定
-     font_style=ttk.Style()
-     font_style.configure("Treeview.Heading",font=("Helvetica",12,"bold"))
-     font_style.configure("Treeview",font=("times",12))
+     font_style_header=ttk.Style()
+     font_style_header.configure("Treeview.Heading",font=("Helvetica",10,"bold"),foreground="black")
+     font_style_body=ttk.Style()
+     font_style_body.configure("Treeview",font=("times",12))
      
      self.__table.bind("<Button-1>",self.table_operation) 
      self.__table.pack(side=tk.LEFT)
@@ -205,8 +229,9 @@ class DataTable(tk.Frame):
      
      new_state=selectstatedialog(self,self.__mail_info[table_id])
      if len(new_state) != 0:
+      #状態変更したけど,未保存だよ
       self.__has_changed_unsaved=True
-      self.__table.set(table_id,self.__col_names[5],new_state+"(未反映)")
+      self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
       #メールの取り扱いについて,テーブルの表示は新しい状態にするが,実際の変更はまだされていないという状態にする
       self.__mail_info[table_id].re_set_display_state(new_state)
    
@@ -214,12 +239,26 @@ class DataTable(tk.Frame):
      new_check_str=self.__mail_info[table_id].change_check_state()
      self.__table.set(table_id,self.__col_names[0], new_check_str)
    
+   #一時的に行った状態変更（状態変更を行ったものの,まだファイルの保存がすんでいない未反映の状態)を元の状態に戻す
+   #状態変更後,ファイルに保存する前まで仮の状態を元に戻す
+   #元に戻すものがないときは発動されないよう別のクラスで処理しているので,ここで,戻すものが1つもなく発動されることはない
+   def cancel_changing_renew_state(self):
+     
+     for table_id,one_mail_info in enumerate(self.__mail_info):
+        if one_mail_info.display_only_state != one_mail_info.state:
+          one_mail_info.cancel_renew_state()
+          self.__table.set(table_id,self.__col_names[6],one_mail_info.state)
+         
+   
+     #状態が元に戻ったので,変更でファイルに書き込んで反映されていないことを表すフラグを元に戻す
+     self.__has_changed_unsaved=False
+   
    def mail_state_multiples_choose(self,new_state):
      for table_id,one_mail_info in enumerate(self.__mail_info):
        if one_mail_info.current_row_checked:
          self.__has_changed_unsaved=True
          self.__mail_info[table_id].re_set_display_state(new_state)
-         self.__table.set(table_id,self.__col_names[5],new_state+"(未反映)")
+         self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
    
    #表示されているところだけチェックを入れる
    def all_enable_check(self):
@@ -237,6 +276,7 @@ class DataTable(tk.Frame):
      
        
    def fwrite(self):
+  
     
     with open(self.__original_file,"w",encoding="utf_8_sig") as f:
    
@@ -246,7 +286,7 @@ class DataTable(tk.Frame):
          one_mail_info.renew_state()
          f.write(str(self.__mail_info[table_id])+"\n")
          if table_id in self.__current_disp_info_ids:
-           self.__table.set(table_id,self.__col_names[5],self.__mail_info[table_id].state)
+           self.__table.set(table_id,self.__col_names[6],self.__mail_info[table_id].state)
        #フッター（合計）もそのまま書き込む
        f.write(self.__file_contents[-1])
        f.close()
@@ -268,22 +308,51 @@ class DataTable(tk.Frame):
       #再び読み取り専用に戻す
       os.chmod(path=self.__backup_file,mode=stat.S_IREAD)
     
-    now_time=datetime.now()
-    backup_log_dir=self.__backup_file[0:self.__backup_file.rindex("\\")+1]+"backup"
-    now_time_str="%d%02d%02d%02d%02d%02d"%(now_time.year,now_time.month,now_time.day,now_time.hour,now_time.minute,now_time.second)
-    backup_log_file=backup_log_dir+"\\outlook_mail_dest_list_"+now_time_str+"_backup.csv"
-    try:
-      shutil.copyfile(self.__original_file,backup_log_file)
-    except OSError:
-      pass
-    else:
-      os.chmod(path=backup_log_file,mode=stat.S_IREAD)
+    #こちらはファイルの保存は行われたので閉じる際にバックアップを作らなければいけないことを示すフラグ
+    #これが立ったので,アプリ終了時にバックアップを作ることとなる
+    self.__once_saved_must_backup=True
+    
     
     #その後未反映ラベルを解除し,メールの取り扱い状態を変更する
     self.__has_changed_unsaved=False
     
    
-  
+   def create_backup_file(self):
+    if self.__once_saved_must_backup:
+     now_time=datetime.now()
+     backup_log_dir=self.__backup_file[0:self.__backup_file.rindex("\\")+1]+"backup"
+     if not pathlib.Path(backup_log_dir).exists():
+        pathlib.Path(backup_log_dir).mkdir()
+        
+     now_time_str="%d%02d%02d%02d%02d%02d"%(now_time.year,now_time.month,now_time.day,now_time.hour,now_time.minute,now_time.second)
+     backup_log_file=backup_log_dir+"\\outlook_mail_dest_list_"+now_time_str+"_backup.csv"
+     try:
+       shutil.copyfile(self.__original_file,backup_log_file)
+     except OSError:
+       pass
+     else:
+       os.chmod(path=backup_log_file,mode=stat.S_IREAD)
+     
+    #万が一の際のシリアライズ化用データ
+    mail_data_contents=[]
+    #ヘッダ
+    mail_data_contents.append(self.__file_contents[0].strip("\n"))
+     
+    #ボディ(元データ)の付け加え
+    mail_data_contents.extend(self.__mail_info)
+     
+    #フッター
+    mail_data_contents.append(self.__file_contents[-1].strip("\n"))
+     
+    mail_log_file=self.__backup_file[0:self.__backup_file.rindex("\\")+1]+"datelog.log"
+    backup_obj=SerializableBackUpInfoObj(tuple(mail_data_contents),mail_log_file)
+    pickle_file="table_data_backup.pickle"
+    with open(pickle_file,"wb") as f:
+       pickle.dump(backup_obj,f)
+       f.close()
+      
+    self.__once_saved_must_backup=False
+     
    @property
    def read_file(self):
      return self.__read_file
@@ -309,9 +378,68 @@ class DataTable(tk.Frame):
        first_date=match_obj[0]
        last_date=match_obj[-1]
      
-     new_header.append(first_date+"から"+last_date+"までの累積メール数")
+     new_header.append(first_date+"から"+last_date+"までの累積\n(現存しない完全削除済みも含む)")
+     new_header.append(last_date+"時点での現存メール数\n(受信フォルダ+削除済みフォルダ)")
      new_header.append("この宛先のメールの取り扱い")
      
      return new_header
+
+
+#何らかのアクシデントで元ファイルが消えてしまった場合に備え,終了するたびに毎回,ここまでのファイル情報とメールの最終確認時刻情報をシリアライズしておく
+class SerializableBackUpInfoObj:
+    
+    def __init__(self,mails_data_info:tuple,fin_checked_data_log_file_path:str):
+       self.__mails_data_info=mails_data_info
+       self.__fin_checked_data_log_file_path=fin_checked_data_log_file_path
+       date_info_file_obj=open(self.__fin_checked_data_log_file_path,encoding="utf_8_sig")
+       date_info_contents=date_info_file_obj.readlines()
+       date_info_file_obj.close()
+       self.__fin_checked_data_str=date_info_contents[-1].strip("\n")
+     
+    #どの時刻分までのメールを確認したかを書いたlogファイルの復帰
+    #こちらに関しては,存在の有無に関係なく,データファイル情報と同期していなければならないので,データを復帰した場合は必ずこちらは復帰をする
+    def restore_log_file(self):
+      try:
+         os.chmod(path=self.__fin_checked_data_log_file_path,mode=stat.S_IWRITE)
+      except FileNotFoundError:
+         pass
+      with open(self.__fin_checked_data_log_file_path,"w",encoding="utf_8_sig") as f:
+         f.write(self.__fin_checked_data_str+"\n")
+         f.close()
+         
+      os.chmod(path=self.__fin_checked_data_log_file_path,mode=stat.S_IREAD)
+    
+    #原本もバックアップも存在しない場合を前提とするので,存在確認や読み取り専用解除はここではしなくてよい
+    def restore_data_files(self,original_file:str,backup_file:str):
+       for one_file in (original_file,backup_file):
+         with open(original_file,"w",encoding="utf_8_sig") as f:
+           f.writelines(self.get_file_contents())
+           f.close()
+           
+       #バックアップファイルの読み取り専用かだけはしておく  
+       os.chmod(path=backup_file,mode=stat.S_IREAD)
+    
+    def get_file_contents(self):
+      file_contents=[]
+      for one_info in self.__mails_data_info:
+         file_contents.append(str(one_info)+"\n")
+      return file_contents
+    
+    #デバッグ用
+    def __str__(self):
+       log_file_data="log_file_path:"+self.__fin_checked_data_log_file_path+"\nfinal_mail_checked_time:"+self.__fin_checked_data_str+"\n"
+       data=f"datas:{self.mail_info}\n"
+       return log_file_data+data
+    
+    @property
+    def mail_info(self):
+      return list(self.__mails_data_info)[1:len(self.__mails_data_info)-1]
+       
+      
+      
+       
+      
+      
+       
      
   
