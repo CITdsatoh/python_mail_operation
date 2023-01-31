@@ -20,23 +20,28 @@ class OneMailInfo:
      self.__mail_address=each_data[0]
      self.__sender_name=each_data[1]
      self.__time_str=each_data[2]
-     self.__mail_num=int(each_data[3])
+     self.__cumulative_mail_num=int(each_data[3])
+     self.__exists_mail_num=int(each_data[4])
+     self.__receive_mail_num=int(each_data[5])
+     self.__deleted_folder_mail_num=int(each_data[6])
      
      #実際にファイルに書き込むときの正式な状態
-     self.__state=each_data[4]
-     self.__display_only_state=self.__state
-     if self.__state not in STATES:
-       self.__state=STATES[0]
+     self.__state=STATES[0]
+     self.__display_only_state=STATES[0]
+     if each_data[7] in STATES:
+       self.__state=each_data[7]
+       self.__display_only_state=each_data[7]
        
      self.__one_data_state_has_changed=True
      self.__check_row=CheckedData()
    
    def get_disp_values(self):
      check_row_str=self.__check_row.current_check_str
+     mail_exists_num_disp_str="%d(受:%d,削済:%d)"%(self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num)
      if self.__display_only_state != self.__state:
-       return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__mail_num,self.__tmp_new_state+"(未反映)")
+       return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__cumulative_mail_num,mail_exists_num_disp_str,self.__tmp_new_state+"(未反映)")
        
-     return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__mail_num,self.__state)
+     return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__cumulative_mail_num,mail_exists_num_disp_str,self.__state)
    
    #こちらはテーブルに表示されている状態は新しくするが,
    #実際のファイルに書き込む際の正式な状態変更はまだ昔のままにするための一時変更メソッド
@@ -89,20 +94,29 @@ class OneMailInfo:
      
    
    def is_according_on_number_conditions(self,conditions:dict):
+     pattern=conditions["mail_num_pattern"]
      start=conditions["start"]
      end=conditions["end"]
-     is_larger_than_start=(start < self.__mail_num) if conditions["start_pattern"] == "gt" else (start <= self.__mail_num)
-     is_less_than_end=(self.__mail_num < end) if conditions["end_pattern"] == "lt" else (self.__mail_num <= end)
+     comp_num=self.__cumulative_mail_num
+     if pattern == "exists" :
+        comp_num=self.__exists_mail_num
+     elif pattern == "receive":
+        comp_num=self.__receive_mail_num
+     elif pattern == "delete":
+        comp_num=self.__deleted_folder_mail_num
      
-     #下限なしの時は0が,上限なしの時は代わりに-1が入っているので,そのときは件数を満たしている扱いする
-     return (is_larger_than_start or start == 0) and (is_less_than_end or end == -1)
+     is_larger_than_start=(start < comp_num) if conditions["start_pattern"] == "gt" else (start <= comp_num)
+     is_less_than_end=(comp_num < end) if conditions["end_pattern"] == "lt" else (comp_num <= end)
+     
+     #下限なし、上限なしの時は代わりに-1が入っているので,そのときは件数を満たしている扱いする
+     return (is_larger_than_start or start == -1) and (is_less_than_end or end == -1)
    
    #変更結果をファイルに書き込む際の文字列
    def __str__(self):
-     return "%s,%s,%s,%d,%s"%(self.__mail_address,self.__sender_name,self.__time_str,self.__mail_num,self.__state)
+     return "%s,%s,%s,%d,%d,%d,%d,%s"%(self.__mail_address,self.__sender_name,self.__time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
    
    def __repr__(self):
-     return "%s(\"%s,%s,%s,%d,%s\")"%(self.__class__.__name__,self.__mail_address,self.__sender_name,self.__time_str,self.__mail_num,self.__state)
+     return "%s(\"%s,%s,%s,%d,%d,%d,%d,%s\")"%(self.__class__.__name__,self.__mail_address,self.__sender_name,self.__time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
    
    @property
    def data_id(self):
@@ -123,8 +137,20 @@ class OneMailInfo:
      return self.__time_str
    
    @property
-   def mail_num(self):
-     return self.__mail_num
+   def cumulative_mail_num(self):
+     return self.__cumulative_mail_num
+     
+   @property
+   def exists_mail_num(self):
+     return self.__exists_mail_num
+   
+   @property
+   def receive_mail_num(self):
+     return self.__receive_mail_num
+   
+   @property
+   def deleted_folder_mail_num(self):
+     return self.__deleted_folder_mail_num
    
    @property
    def state(self):
