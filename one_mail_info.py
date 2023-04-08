@@ -39,9 +39,9 @@ class OneMailInfo:
      check_row_str=self.__check_row.current_check_str
      mail_exists_num_disp_str="%d(受:%d,削済:%d)"%(self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num)
      if self.__display_only_state != self.__state:
-       return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__cumulative_mail_num,mail_exists_num_disp_str,self.__tmp_new_state+"(未反映)")
+       return (check_row_str,self.__data_id+1,OneMailInfo.disp_remove_csv_escape(self.__mail_address),OneMailInfo.disp_remove_csv_escape(self.__sender_name),self.__cumulative_mail_num,mail_exists_num_disp_str,self.__tmp_new_state+"(未反映)")
        
-     return (check_row_str,self.__data_id+1,self.__mail_address,self.__sender_name,self.__cumulative_mail_num,mail_exists_num_disp_str,self.__state)
+     return (check_row_str,self.__data_id+1,OneMailInfo.disp_remove_csv_escape(self.__mail_address),OneMailInfo.disp_remove_csv_escape(self.__sender_name),self.__cumulative_mail_num,mail_exists_num_disp_str,self.__state)
    
    #こちらはテーブルに表示されている状態は新しくするが,
    #実際のファイルに書き込む際の正式な状態変更はまだ昔のままにするための一時変更メソッド
@@ -213,6 +213,23 @@ class OneMailInfo:
      if "re" in pattern_name:
        return re.search(expr_pattern,text) is not None
 
+   #この呼び出し元ファイルはCSVである
+   #CSVでのダブルクオーテーションは,「ダブルクオーテーションで囲んだ範囲にあるカンマを区切り文字ではなくカンマそのものとして扱わせる」という目印
+   #だが,CSVでダブルクオーテーションを文字列として扱いたいときは,""(ダブルクオーテーション)2つ並べる。このプログラムはCSV関係ないので,このまま呼び出すと,ダブルクオーテーションが2つ並んでしまう
+   #よって、ここでダブルクオーテーション2つをダブルクオーテーション1つとして表示させる
+   #また,ダブルクオーテーションが1つ,つまり,カンマをエスケープするという意味でのダブルクオーテーションは,ここではCSV関係ないので表示から外す。そのため,ダブルクオーテーション1つの時はダブルクオーテーションを見えなくする
+   #いわば、逆エスケープ処理を行う
+   #ただし,このテーブル処理終了後,内容は,またCSVとして文字列として保存しなおすので、インスタンス変数の内容自体を逆エスケープするわけではない。ユーザーに見せる表示部分のみを逆エスケープ
+   @classmethod
+   def disp_remove_csv_escape(cls,csv_str):
+     removed_str=csv_str
+     if "," in csv_str and csv_str.startswith("\"") and csv_str.endswith("\""):
+       removed_str=csv_str[1:len(removed_str)-1]
+      
+     removed_str=removed_str.replace("\"\"","\"")
+     
+     return removed_str 
+
 
 
 class CheckedData:
@@ -271,7 +288,7 @@ class SelectButtonDialog(simpledialog.Dialog):
     def buttonbox(self):
       #box=tk.Frame(self)
       self.geometry("768x256")
-      explain_text="宛先:"+self._mail_info.sender_name+"(メールアドレス:"+self._mail_info.mail_address+")からのメールを今後どのように扱いますか?\n以下の3つから選択をし,「OK」ボタンを押してください\nそして,最初の画面に存在する「設定を保存」ボタンを押してください。\nこれで設定の変更が保存されます(下の「OK」ボタンを押しただけでは設定は反映されないので気を付けてください)"
+      explain_text="宛先:"+OneMailInfo.disp_remove_csv_escape(self._mail_info.sender_name)+"(メールアドレス:"+OneMailInfo.disp_remove_csv_escape(self._mail_info.mail_address)+")からのメールを今後どのように扱いますか?\n以下の3つから選択をし,「OK」ボタンを押してください\nそして,最初の画面に存在する「設定を保存」ボタンを押してください。\nこれで設定の変更が保存されます(下の「OK」ボタンを押しただけでは設定は反映されないので気を付けてください)"
       explaination_label=tk.Label(self,text=explain_text,font=("helvetica",10,"bold"))
       explaination_label.place(x=0,y=8)
       mov_choice=tk.Radiobutton(self,text=STATES[0],variable=self._state_widget_var,value=0)
