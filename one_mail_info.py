@@ -12,11 +12,16 @@ class OneMailInfo:
 
    next_id=0
    def __init__(self,one_data):
-     each_data=one_data.split(",")
+     #csvのファイルをセルごとに区切る場合は,区切り文字として「,」が使われるが,
+     #「"」（ダブルクオーテーション)で囲まれているときには「,」は区切り文字とみなさず、区切りたくない
+     each_data=split_except_escape_char(one_data,",","\"")
+     
+     
      #自動的にID(列番号）をつける
      self.__data_id=self.__class__.next_id
      
      self.__class__.next_id += 1
+     
      self.__mail_address=each_data[0]
      self.__sender_name=each_data[1]
      self.__time_str=each_data[2]
@@ -336,5 +341,28 @@ def selectstatedialog(parent,one_data):
    ret=dialog.result or ""
    
    return ret
+
+
+#第一引数の文字列を第二引数の文字列を区切り文字として区切ってリストとして返すが,
+#第三引数として与えた文字列に囲まれている間にある第二引数の文字列は区切り文字としてみなさないようにする
+#不定長の先読みが使えないためこれで代用
+#使用例としてcsvのファイルをセルごとに区切る場合は,区切り文字として「,」が使われるが,「"」（ダブルクオーテーション)で囲まれているときの「,」は区切り文字とみなさない
+def split_except_escape_char(one_str:str,split_char,escape_char=""):
+   result=[]
+   split_start=0
+   is_inside_escape_char=False
+   
+   for i in range(0,len(one_str)):
+     if one_str[i] == split_char:
+        if not is_inside_escape_char:
+           result.append(one_str[split_start:i])
+           split_start=i+1
+           continue
+     elif one_str[i] == escape_char:
+        is_inside_escape_char=not is_inside_escape_char
+   else:
+     result.append(one_str[split_start:len(one_str)])
+  
+   return result
       
      
