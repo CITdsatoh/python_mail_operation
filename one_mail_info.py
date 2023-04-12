@@ -83,7 +83,7 @@ class OneMailInfo:
        
    def is_according_on_pattern_conditions(self,conditions:dict):
       f_pattern=conditions["pattern"]
-      f_basement=self.__sender_name if conditions["basement"] == "name" else self.__mail_address
+      f_basement=OneMailInfo.disp_remove_csv_escape(self.__sender_name) if conditions["basement"] == "name" else OneMailInfo.disp_remove_csv_escape(self.__mail_address)
       #メールアドレスや宛名側の空白を取り除く指定があった場合,ここで取り除く
       if conditions["remove_space"]:
          f_basement=re.sub("\\s+","",f_basement)
