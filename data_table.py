@@ -194,14 +194,15 @@ class DataTable(tk.Frame):
        self.__shift_pressing=False
    
    
-   def filter_table_display_row(self,conditions,type):
+   #失敗したらFalseを,成功したらTrueを返す
+   def filter_table_display_row(self,conditions):
     
      for one_table_id in self.__current_disp_info_ids:
        self.__table.delete(one_table_id)
          
      self.__current_disp_info_ids=[]
      for table_id,one_mail_info in enumerate(self.__mail_info):
-       if one_mail_info.is_according_on_conditions(conditions,type):
+       if conditions.is_according_on_conditions(one_mail_info):
           self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
           self.__current_disp_info_ids.append(table_id)
        else:
@@ -211,8 +212,11 @@ class DataTable(tk.Frame):
      if len(self.__current_disp_info_ids) == 0:
         messagebox.showerror("エラー","条件に当てはまる項目が1つもありませんでした!")
         self.filter_remove()
+        return False
      else:
         messagebox.showinfo("フィルター完了","%d件当てはまる項目が見つかりました"%(len(self.__current_disp_info_ids)))
+     
+     return True
              
      
    def filter_remove(self):
@@ -274,7 +278,8 @@ class DataTable(tk.Frame):
      
      self.__table.selection_remove(self.__table.selection())
      
-       
+   
+   #こちらは新しく設定が反映された際,フィルターがかかっているかどうかに関係なく,すべての宛先に対する新しいメール取り扱い情報をファイルに記述する 
    def fwrite(self):
   
     
@@ -316,6 +321,31 @@ class DataTable(tk.Frame):
     #その後未反映ラベルを解除し,メールの取り扱い状態を変更する
     self.__has_changed_unsaved=False
     
+   
+   #こちらはメール宛先の取り扱いの状況に関係なく,フィルターなどで表示を減らした際に,現在フィルターがかかって表示されている宛先のみをファイルに書き込むメソッド
+   def filtered_write(self,write_file_path:str):
+      filtered_cumulative_mail_sum=0
+      filtered_exists_mail_sum=0
+      filtered_receive_mail_sum=0
+      filtered_deleted_folder_mail_sum=0
+      
+      with open(write_file_path,"w",encoding="utf_8_sig") as f:
+         #ヘッダは元ファイルのまま書き込む
+         f.write(self.__file_contents[0])
+         for one_table_id in self.__current_disp_info_ids:
+            current_mail_info=self.__mail_info[one_table_id]
+            print(current_mail_info,file=f)
+            filtered_cumulative_mail_sum +=  current_mail_info.cumulative_mail_num
+            filtered_exists_mail_sum += current_mail_info.exists_mail_num
+            filtered_receive_mail_sum += current_mail_info.receive_mail_num
+            filtered_deleted_folder_mail_sum += current_mail_info.deleted_folder_mail_num
+         
+         #フッターは合計
+         footer_str=",,,%d,%d,%d,%d,,"%(filtered_cumulative_mail_sum,filtered_exists_mail_sum,filtered_receive_mail_sum,filtered_deleted_folder_mail_sum)
+         print(footer_str,file=f)
+         f.close()
+      
+         
    
    def create_backup_file(self):
     if self.__once_saved_must_backup:
