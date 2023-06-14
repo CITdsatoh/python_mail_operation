@@ -266,13 +266,30 @@ class MailDataApplication(tk.Tk):
    def save_address_only_filtered(self,event=None):
      
      if self.__all_button_enable:
-     
-       #保存を行うかどうか(途中でユーザが保存するのを取り消すことができるようにするため,ユーザーが保存しようしているのかフラグとして残しておく)
+       
+       #フィルター結果の保存を行うかどうか(途中でユーザが保存するのを取り消すことができるようにするため,ユーザーが保存しようしているのかフラグとして残しておく)
        do_save=False
        
        #ユーザーが不正な入力などを行った際,ファイル名をね続けるかどうかのフラグ
        do_check=True
        
+       #取り扱い設定の保存を行わず直接フィルターの保存をした場合は,そのまま示し
+       guide_str=""
+       
+       if self.__data_table.has_changed_unsaved:
+           #メールの取り扱い設定がすんでいなかった場合,最初に設定の保存をするかどうか否か聞く
+          pre_do_save=messagebox.askyesno("設定の保存","フィルターを行う前に,まず,メールの取り扱いに関する設定がまだ選択しただけであって,設定は保存されてません。保存しますか?")
+          if pre_do_save:
+            do_check=self.save_file()
+          #取り扱い設定の保存を行った場合は「次に」という文字列を挿入する
+          guide_str="次に"
+       
+          
+       #取り扱いを保存した後,何も前触れもなくフィルター結果の保存に移った場合,ユーザーが混乱するかもしれないので,その旨を示しておく
+       if do_check:
+         messagebox.showinfo("フィルター結果の保存",guide_str+"フィルター結果の保存に入ります。フィルター結果を保存したいファイルを選択してください")
+             
+          
        
        #保存先ファイル名(デフォルトでは,outlook_mail_filtered_dest_list_(現時刻のタイムスタンプ(14桁)).csvとする)
        now=datetime.now()
