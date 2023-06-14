@@ -74,47 +74,6 @@ class OneMailInfo:
    def renew_state(self):
      self.__state=self.__display_only_state
    
-   def is_according_on_conditions(self,conditions:dict,type:str):
-      if type == "pattern":
-         return self.is_according_on_pattern_conditions(conditions)
-      elif type == "num":
-         return self.is_according_on_number_conditions(conditions)
-      return True
-       
-   def is_according_on_pattern_conditions(self,conditions:dict):
-      f_pattern=conditions["pattern"]
-      f_basement=OneMailInfo.disp_remove_csv_escape(self.__sender_name) if conditions["basement"] == "name" else OneMailInfo.disp_remove_csv_escape(self.__mail_address)
-      #メールアドレスや宛名側の空白を取り除く指定があった場合,ここで取り除く
-      if conditions["remove_space"]:
-         f_basement=re.sub("\\s+","",f_basement)
-      for one_expr in conditions["expressions"]:
-        #「肯定」検索の時は,このメソッド(入力したパターンに文字列があっているか)が1つでもTrueを返せばTrue
-        #一方「否定」検索の時は,「肯定」検索のときにTrueが返されるパターンを満たしてはいけないので,この「肯定」検索の時のパターンしか返さないメソッドが1つでもTrueを返せばFalseになる
-        if self.__class__.comp_expression_and_pattern(f_pattern,one_expr,f_basement,conditions["ignore_case"],conditions["ignore_char_width"]):
-           #f_patternがnから始まらないものは「肯定」検索しているのでTrue,nから始まってしまうものは「否定」検索しているので,False
-           return not f_pattern.startswith("n")
-      
-      #逆に１つも満たさなかった場合,「肯定」の時はFalse,「否定」の時はTrue
-      return f_pattern.startswith("n")
-     
-   
-   def is_according_on_number_conditions(self,conditions:dict):
-     pattern=conditions["mail_num_pattern"]
-     start=conditions["start"]
-     end=conditions["end"]
-     comp_num=self.__cumulative_mail_num
-     if pattern == "exists" :
-        comp_num=self.__exists_mail_num
-     elif pattern == "receive":
-        comp_num=self.__receive_mail_num
-     elif pattern == "delete":
-        comp_num=self.__deleted_folder_mail_num
-     
-     is_larger_than_start=(start < comp_num) if conditions["start_pattern"] == "gt" else (start <= comp_num)
-     is_less_than_end=(comp_num < end) if conditions["end_pattern"] == "lt" else (comp_num <= end)
-     
-     #下限なし、上限なしの時は代わりに-1が入っているので,そのときは件数を満たしている扱いする
-     return (is_larger_than_start or start == -1) and (is_less_than_end or end == -1)
    
    #変更結果をファイルに書き込む際の文字列
    def __str__(self):
@@ -130,11 +89,20 @@ class OneMailInfo:
    @property
    def mail_address(self):
      return self.__mail_address
+     
    
+   @property
+   def escaped_mail_address(self):
+     return self.__class__.disp_remove_csv_escape(self.__mail_address)
    
    @property
    def sender_name(self):
      return self.__sender_name
+   
+   @property
+   def escaped_sender_name(self):
+     return self.__class__.disp_remove_csv_escape(self.__sender_name)
+   
      
    
    @property
@@ -177,46 +145,6 @@ class OneMailInfo:
    @classmethod
    def reset_id(cls):
      cls.next_id=0
-   
-   #ここでは,第一引数:与えられた比較パターン(前方一致:f,後方一致:b,部分一致:p,完全一致:e,ワイルドカード:wc,正規表現:re)
-   #ごとに,第三引数(探索文字列)が第二引数(探索範囲)（を含んでいる|から始まる|で終わる|と一致する|表現を満たす)かを検索する
-   @classmethod
-   def comp_expression_and_pattern(cls,pattern_name,expr_pattern,text,is_ignore_case,is_ignore_char_width):
-     #第一引数の比較パターンを表す文字列の最初にnが含まれていたらそれは否定(部分一致否定,前方一致否定・・etc)となるがそれは別メソッドで場合分けを行う
-     #なのでここでは肯定の時だけを考える
-     
-     if is_ignore_char_width:
-       expr_pattern=unicodedata.normalize("NFKC",expr_pattern)
-       text=unicodedata.normalize("NFKC",text)
-       
-     if is_ignore_case:
-      #大文字小文字を無視するワイルドカード・正規表現の比較は比較手法が特殊なので先にやってしまう
-      if "wc" in pattern_name:
-        return fnmatch.fnmatch(text,expr_pattern)
-      if "re" in pattern_name:
-        return re.search(expr_pattern,text,re.IGNORECASE) is not None
-      expr_pattern=expr_pattern.lower()
-      text=text.lower()
-   
-     #第一引数が部分一致(p)なら,第二引数を第三引数が含んでいればTrue
-     if "p" in pattern_name:
-       return expr_pattern in text
-     #第一引数が前方一致(f)なら,第三引数が第二引数で始まればTrue
-     if "f" in pattern_name:
-       return text.startswith(expr_pattern)
-     #第一引数が後方一致(b)なら,第三引数が第二引数で終わればTrue
-     if "b" in pattern_name:
-       return text.endswith(expr_pattern)
-     #第一引数が完全一致(e)なら,第二引数と第三引数が等しければTrue
-     #ただしeを含むとした場合,"re"(正規表現）の場合も入ってしまうのでそれは除く
-     if "e" in pattern_name and "r" not in pattern_name:
-       return expr_pattern == text
-     
-     #以下は大文字小文字を区別する比較
-     if "wc" in pattern_name:
-       return fnmatch.fnmatchcase(text,expr_pattern)
-     if "re" in pattern_name:
-       return re.search(expr_pattern,text) is not None
 
    #この呼び出し元ファイルはCSVである
    #CSVでのダブルクオーテーションは,「ダブルクオーテーションで囲んだ範囲にあるカンマを区切り文字ではなくカンマそのものとして扱わせる」という目印
