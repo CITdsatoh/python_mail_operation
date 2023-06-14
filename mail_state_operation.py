@@ -4,7 +4,9 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import os
 import re
-from tkinter import messagebox
+import subprocess
+from tkinter import messagebox,filedialog
+from datetime import datetime
 from data_table import DataTable
 from thread_manage import ThreadManage
 from filter_dialog import askfilterpattern,askfiltermailnum
@@ -21,6 +23,9 @@ class MailDataApplication(tk.Tk):
      
      mail_csv_file=self.__class__.get_desktop_dir()+"\\outlook_mail_dest_list.csv"
      mail_csv_backup_file=self.__class__.get_roming_dir()+"\\outlook_mail_dest_list.csv"
+     
+     #フィルター結果の絞り込み条件
+     self.__filter_conditions=None
      
      self.__filter_btn=tk.Button(self,text="宛先またはメールアドレスをもとにフィルターする",font=("times",11))
      self.__filter_btn.bind("<Button-1>",self.table_filter)
@@ -52,6 +57,11 @@ class MailDataApplication(tk.Tk):
      self.__outlook_exe_button.bind("<Button-1>",self.exe_vbs)
      self.__outlook_exe_button.place(x=896,y=560)
      
+     self.__set_save_button=tk.Button(self,text="設定を保存",font=("times",12))
+     self.__set_save_button.bind("<Button-1>",self.save_file)
+     self.__set_save_button.place(x=1120,y=560)
+     
+    
      self.__mail_save_button=tk.Button(self,text="チェックしたした宛先からのメールを「保存」するようにする",font=("times",10))
      self.__mail_save_button.bind("<Button-1>",self.set_state)
      self.__mail_save_button.place(x=32,y=608)
@@ -62,17 +72,21 @@ class MailDataApplication(tk.Tk):
      self.__mail_move_button.bind("<Button-1>",self.set_state)
      self.__mail_move_button.place(x=864,y=608)
      
-     self.__set_save_button=tk.Button(self,text="設定を保存",font=("times",12))
-     self.__set_save_button.bind("<Button-1>",self.save_file)
-     self.__set_save_button.place(x=128,y=656)
+    
      
      self.__restore_tmp_state_button=tk.Button(self,text="未反映の設定を変更前に戻す(設定の保存後はできません)",font=("times",12))
      self.__restore_tmp_state_button.bind("<Button-1>",self.restore_tmp_state)
-     self.__restore_tmp_state_button.place(x=256,y=656)
+     self.__restore_tmp_state_button.place(x=128,y=656)
+     
+     self.__only_filtered_save_button=tk.Button(self,text="フィルター後に表示されている宛先をファイルに書き込む",font=("times",12));
+     self.__only_filtered_save_button.bind("<Button-1>",self.save_address_only_filtered);
+     self.__only_filtered_save_button.place(x=640,y=656)
      
      self.__exit_button=tk.Button(self,text="終了",font=("times",12))
      self.__exit_button.bind("<Button-1>",self.exit)
-     self.__exit_button.place(x=736,y=656)
+     self.__exit_button.place(x=1120,y=656)
+     
+   
      self.__all_button_enable=True
      
      self.protocol("WM_DELETE_WINDOW", self.exit)
@@ -133,18 +147,20 @@ class MailDataApplication(tk.Tk):
    
    def table_filter(self,event):
      
-     conditions=None
-     type="pattern"
+     new_conditions=None
      if "宛先またはメールアドレス" in event.widget["text"]:
-       conditions=askfilterpattern(self.__data_table)
+       new_conditions=askfilterpattern(self.__data_table)
      elif "メールの件数" in event.widget["text"]:
-       conditions=askfiltermailnum(self.__data_table)
-       type="num"
+       new_conditions=askfiltermailnum(self.__data_table)
              
-     if conditions is not None:
-       self.__data_table.filter_table_display_row(conditions,type)
+     if new_conditions is not None:
+       self.__filter_conditions=new_conditions
+       is_filter_succeed=self.__data_table.filter_table_display_row(self.__filter_conditions)
+       if not is_filter_succeed:
+          self.__filter_conditions=None
    
    def table_remove_filter(self,event):
+     self.__filter_conditions=None
      self.__data_table.filter_remove()
       
              
@@ -225,6 +241,8 @@ class MailDataApplication(tk.Tk):
         self.button_state_change()
         self.update()
            
+   
+   
    def renew_table(self):
      self.__data_table.place_forget()
      self.__data_table.destroy()
@@ -232,6 +250,7 @@ class MailDataApplication(tk.Tk):
      mail_csv_backup_file=self.__class__.get_roming_dir()+"\\outlook_mail_dest_list.csv"
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
      self.__data_table.place(x=0,y=160)
+     self.__filter_conditions=None
      self.update() 
      
    
@@ -243,6 +262,61 @@ class MailDataApplication(tk.Tk):
           messagebox.showerror("エラー","ファイルに書き込んで保存され反映したものに関しては戻せません\n(戻せるのはメールの取り扱いの設定変更後、ファイルに書き込んでいない未反映のものに限ります)")
       
         
+   #全宛先ではなく,フィルターした結果、絞り込まれた宛先のみをファイルに書き込む
+   def save_address_only_filtered(self,event=None):
+     
+     if self.__all_button_enable:
+     
+       #保存を行うかどうか(途中でユーザが保存するのを取り消すことができるようにするため,ユーザーが保存しようしているのかフラグとして残しておく)
+       do_save=False
+       
+       #ユーザーが不正な入力などを行った際,ファイル名をね続けるかどうかのフラグ
+       do_check=True
+       
+       
+       #保存先ファイル名(デフォルトでは,outlook_mail_filtered_dest_list_(現時刻のタイムスタンプ(14桁)).csvとする)
+       now=datetime.now()
+       save_csv_file_name="outlook_mail_filtered_dest_list_%04d%02d%02d%02d%02d%02d.csv"%(now.year,now.month,now.day,now.hour,now.minute,now.second)
+       
+       while do_check:
+          chosen_file_name=filedialog.asksaveasfilename(title="フィルター結果の保存先ファイルを選択",initialdir=self.__class__.get_desktop_dir(),initialfile=save_csv_file_name,filetypes=[("csvファイル","*.csv")],defaultextension="csv")
+          if len(chosen_file_name) == 0 or chosen_file_name == ".csv" :
+             do_check=messagebox.askyesno("保存先ファイル選択の続行","ファイル名が入力されていませんが,もう一度保存先ファイルの選択を続行しますか?")
+             continue
+          if "outlook_mail_dest_list.csv" in chosen_file_name :
+             messagebox.showerror("エラー",chosen_file_name+"には保存できません!別のファイルを選択してください!")
+             do_check=messagebox.askyesno("保存先ファイル選択の続行","もう一度保存先ファイルの選択を続行しますか?")
+             continue
+          
+          #正常だった場合(拡張子がcsvでなくても,何らかの入力があれば,正常扱いする)
+          do_check=False
+          do_save=True
+          #拡張子がcsvでない場合はこちらで補う
+          path,extension=os.path.splitext(chosen_file_name)
+          if extension != ".csv":
+             chosen_file_name += ".csv"
+          save_csv_file_name=chosen_file_name
+       
+       
+       if do_save:
+          try:
+             self.__data_table.filtered_write(save_csv_file_name)
+             condition_file=save_csv_file_name.rstrip(".csv")+"_filter_condition.txt"
+             with open(condition_file,"w",encoding="utf-8") as f:
+                #self.__filter_conditionsは現在かかっているフィルターの内容を示すオブジェクト
+                #これがNoneなら,フィルターがかかっていないので,代わりに"フィルター：なし"という文字列を書き込み,Noneでないとき(フィルターがあるときは),その内容を書く
+                condition_write_str=self.__filter_conditions and str(self.__filter_conditions) or "フィルター:なし"
+                f.write(condition_write_str+"\n")
+                f.close()
+          except (PermissionError,OSError):
+             messagebox.showerror("ファイルの書き込み失敗","ファイルの書き込みに失敗しました。書き込もうとしているファイルが開かれているか,読み取り専用になっている可能性があります")
+          else:
+             messagebox.showinfo("ファイル書き込み完了","フィルター結果をファイルに書き込みました")
+             save_csv_file_dir=save_csv_file_name[0:save_csv_file_name.rindex("/")]
+             save_csv_file_dir_cmd_str="\""+save_csv_file_dir.replace("/","\\")+"\""
+             subprocess.Popen(f"explorer {save_csv_file_dir_cmd_str}", shell=True)
+           
+   
    def exit(self,event=None):
      if self.__all_button_enable:
        
