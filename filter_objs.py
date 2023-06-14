@@ -8,6 +8,7 @@ class PatternMatchingFilter:
 
    PATTERN_MATCHING_NAMES={"p":"部分一致","f":"前方一致","b":"後方一致","e":"完全一致","wc":"ワイルドカード","re":"正規表現"}
    BASEMENT_NAMES={"name":"宛名","mail_address":"メールアドレス"}
+   PATTERN_MATCHING_JAPANESE={"p":"のいずれかがつく","f":"のいずれかから始まる","b":"のいずれかで終わる","e":"のいずれかに一致する","wc":"のいずれかのパターンにマッチする","re":"のいずれかの表現にマッチする","np":"のいずれもつかない","nf":"のいずれからでも始まらない","nb":"のいずれでも終わらない","ne":"のいずれにも一致しない","nwc":"のいずれのパターンにもマッチしない","nre":"のいずれの表現にもマッチしない"}
    
    def __init__(self,comp_basement:str,match_pattern:str,expressions,is_ignore_case:bool,is_remove_space:bool,is_ignore_char_width:bool):
       
@@ -84,14 +85,17 @@ class PatternMatchingFilter:
       
       match_name=self.__match_pattern
       pos_neg="肯定"
+      expr_sep="か"
       if self.__match_pattern.startswith("n"):
          pos_neg="否定"
+         expr_sep="と"
          match_name=match_name.lstrip("n")
       
-      pattern_match_str=" 検索パターン:"+self.__class__.BASEMENT_NAMES[self.__comp_basement]+"に対する"+self.__class__.PATTERN_MATCHING_NAMES[match_name]+"の"+pos_neg+"\n"
+      pattern_match_str=" 検索方法:"+self.__class__.BASEMENT_NAMES[self.__comp_basement]+"に対する"+self.__class__.PATTERN_MATCHING_NAMES[match_name]+"の"+pos_neg+"\n"
       
-      expression_str="」と「".join(self.__expressions)
-      expressions_str=" 検索文字列「"+expression_str+"」\n"
+      expression_split_str=f"」{expr_sep}「"
+      expression_str=expression_split_str.join(self.__expressions)
+      expressions_str=" 検索パターン:「"+expression_str+"」"+self.__class__.PATTERN_MATCHING_JAPANESE[self.__match_pattern]+"\n"
       
       is_ignore_case_str=" 大文字小文字違いの無視:あり\n" if self.__is_ignore_case else "大文字小文字違いの無視:なし\n"
       is_remove_space_str=" 空白の無視:あり\n" if self.__is_remove_space else "空白の無視:なし\n"
