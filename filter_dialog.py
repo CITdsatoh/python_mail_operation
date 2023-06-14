@@ -4,6 +4,7 @@ from tkinter import simpledialog
 import tkinter as tk
 import tkinter.ttk as ttk
 import re
+from filter_objs import PatternMatchingFilter,MailNumFilter
 
 
 class FilterMakeDialog(simpledialog.Dialog):
@@ -120,8 +121,10 @@ class FilterMakeDialog(simpledialog.Dialog):
        input_patterns=self.get_filter_patterns()
        
        if len(input_patterns) != 0:
-        self.result={"basement":filter_base,"pattern":self.get_current_filter_pattern(),"expressions":input_patterns,"ignore_case":self.__ignore_case_checkbox_var.get(),"remove_space":self.__ignore_space_checkbox_var.get(),"ignore_char_width":self.__ignore_char_width_checkbox_var.get()}
-     
+        is_ignore_case=self.__ignore_case_checkbox_var.get()
+        is_ignore_space=self.__ignore_space_checkbox_var.get()
+        is_ignore_char_width=self.__ignore_char_width_checkbox_var.get()
+        self.result=PatternMatchingFilter(filter_base,self.get_current_filter_pattern(),input_patterns,is_ignore_case,is_ignore_space,is_ignore_char_width)
    
    def operation_by_key_horizontal(self,event):
      pressed_key=event.keysym
@@ -342,7 +345,8 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
       
       mail_num_pattern=self.__class__.ITEM_NAMES[self.__pattern_choose_widget_var.get()]
       
-      self.result={"mail_num_pattern":mail_num_pattern,"start_pattern":start_pattern,"start":start,"end":end,"end_pattern":end_pattern}
+      self.result=MailNumFilter(mail_num_pattern,start_pattern,end_pattern,start,end)
+      
       return True
     
     return True
