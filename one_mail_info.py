@@ -44,7 +44,7 @@ class OneMailInfo:
      check_row_str=self.__check_row.current_check_str
      mail_exists_num_disp_str="%d(受:%d,削済:%d)"%(self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num)
      if self.__display_only_state != self.__state:
-       return (check_row_str,self.__data_id+1,OneMailInfo.disp_remove_csv_escape(self.__mail_address),OneMailInfo.disp_remove_csv_escape(self.__sender_name),self.__cumulative_mail_num,mail_exists_num_disp_str,self.__tmp_new_state+"(未反映)")
+       return (check_row_str,self.__data_id+1,OneMailInfo.disp_remove_csv_escape(self.__mail_address),OneMailInfo.disp_remove_csv_escape(self.__sender_name),self.__cumulative_mail_num,mail_exists_num_disp_str,self.__display_only_state+"(未反映)")
        
      return (check_row_str,self.__data_id+1,OneMailInfo.disp_remove_csv_escape(self.__mail_address),OneMailInfo.disp_remove_csv_escape(self.__sender_name),self.__cumulative_mail_num,mail_exists_num_disp_str,self.__state)
    
