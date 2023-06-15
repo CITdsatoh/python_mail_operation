@@ -137,7 +137,7 @@ class MailNumFilter:
       elif self.__comp_basement_folder_name == "receive":
          comp_folder_mail_num=mail_info.receive_mail_num
       elif self.__comp_basement_folder_name == "delete":
-         comp_folder_mail_num=mail_info.deleted_mail_num
+         comp_folder_mail_num=mail_info.deleted_folder_mail_num
       
       is_greater_than_min=(self.__range_min_mail_num < comp_folder_mail_num) if self.__greater_pattern == "gt" else (self.__range_min_mail_num <= comp_folder_mail_num)
       is_less_than_max=(comp_folder_mail_num < self.__range_max_mail_num) if self.__less_pattern == "lt" else (comp_folder_mail_num <= self.__range_max_mail_num)
