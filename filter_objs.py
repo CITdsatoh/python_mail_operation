@@ -81,7 +81,7 @@ class PatternMatchingFilter:
    
    #文字列化(フィルター条件をファイルに書き込む際に必要)
    def __str__(self):
-      header="フィルター内容\n"
+      header="フィルター内容"
       
       match_name=self.__match_pattern
       pos_neg="肯定"
@@ -91,18 +91,18 @@ class PatternMatchingFilter:
          expr_sep="と"
          match_name=match_name.lstrip("n")
       
-      pattern_match_str=" 検索方法:"+self.__class__.BASEMENT_NAMES[self.__comp_basement]+"に対する"+self.__class__.PATTERN_MATCHING_NAMES[match_name]+"の"+pos_neg+"\n"
+      pattern_match_str=f" 検索方法:{self.__class__.BASEMENT_NAMES[self.__comp_basement]}に対する{self.__class__.PATTERN_MATCHING_NAMES[match_name]}の{pos_neg}"
       
       expression_split_str=f"」{expr_sep}「"
       expression_str=expression_split_str.join(self.__expressions)
-      expressions_str=" 検索パターン:「"+expression_str+"」"+self.__class__.PATTERN_MATCHING_JAPANESE[self.__match_pattern]+"\n"
+      expressions_str=f" 検索パターン:「{expression_str}」{self.__class__.PATTERN_MATCHING_JAPANESE[self.__match_pattern]}"
       
-      is_ignore_case_str=" 大文字小文字違いの無視:あり\n" if self.__is_ignore_case else "大文字小文字違いの無視:なし\n"
-      is_remove_space_str=" 空白の無視:あり\n" if self.__is_remove_space else "空白の無視:なし\n"
-      is_ignore_char_width_str=" 半角全角の違いの無視:あり\n" if self.__is_ignore_char_width else "半角全角の違いの無視:なし\n"
+      is_ignore_case_str=" 大文字小文字違いの無視:あり" if self.__is_ignore_case else "大文字小文字違いの無視:なし"
+      is_remove_space_str=" 空白の無視:あり" if self.__is_remove_space else "空白の無視:なし\n"
+      is_ignore_char_width_str=" 半角全角の違いの無視:あり" if self.__is_ignore_char_width else "半角全角の違いの無視:なし"
       
       
-      return header+pattern_match_str+expressions_str+is_ignore_case_str+is_remove_space_str+is_ignore_char_width_str
+      return "\n".join([header,pattern_match_str,expressions_str,is_ignore_case_str,is_remove_space_str,is_ignore_char_width_str])
       
 
 
@@ -147,9 +147,9 @@ class MailNumFilter:
     
     #文字列化(フィルター後の宛先を書き込む際にどんな条件でフィルターしたかを記録しておくために必要)
     def  __str__(self):  
-      header_str="フィルター内容\n"
-      
-      basement_folder_num_str=" "+self.__class__.BASEMENT_NAMES[self.__comp_basement_folder_name]+"メールの件数でのフィルター\n"
+      header_str="フィルター内容"
+     
+      basement_folder_num_str=" "+self.__class__.BASEMENT_NAMES[self.__comp_basement_folder_name]+"メールの件数でのフィルター"
       
       min_mail_num_str_header=" メール数の下限:"
       min_mail_num_str_body="%d件"%(self.__range_min_mail_num)+self.__class__.GREATER_PATTERN_STRS[self.__greater_pattern]
@@ -163,6 +163,6 @@ class MailNumFilter:
       
       mail_num_str_full="".join([min_mail_num_str_header,min_mail_num_str_body,max_mail_num_str_header,max_mail_num_str_body])
       
-      return header_str+basement_folder_num_str+mail_num_str_full+"\n"
+      return "\n".join([header_str,basement_folder_num_str,mail_num_str_full])
    
       
