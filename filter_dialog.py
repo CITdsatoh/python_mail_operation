@@ -68,6 +68,7 @@ class FilterMakeDialog(simpledialog.Dialog):
      self.__warning_label=tk.Label(self,text="",font=("helvetica",12,"bold"),fg="#ff0000")
      
      
+     
      self.__header_label.place(x=4,y=4)
      self.__pos_neg_radio_var.set(1)
      self.__positive_pattern_radio.place(x=32,y=128)
@@ -113,10 +114,12 @@ class FilterMakeDialog(simpledialog.Dialog):
    def box(self):
      return  self.__filter_select
    
+   
    def apply(self):
      
        #何をもとにしてフィルターをかけるかを表す(nameは宛名,mail_addressはメールアドレス)
        filter_base="name" if self.__filter_obj_select.get() == "宛名" else "mail_address"
+       
        
        input_patterns=self.get_filter_patterns()
        
