@@ -201,13 +201,19 @@ class DataTable(tk.Frame):
        self.__table.delete(one_table_id)
          
      self.__current_disp_info_ids=[]
-     for table_id,one_mail_info in enumerate(self.__mail_info):
-       if conditions.is_according_on_conditions(one_mail_info):
-          self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
-          self.__current_disp_info_ids.append(table_id)
-       else:
-          one_mail_info.disable_check()
-          one_mail_info.cancel_renew_state()
+     try:
+       for table_id,one_mail_info in enumerate(self.__mail_info):
+         if conditions.is_according_on_conditions(one_mail_info):
+            self.__table.insert("","end",iid=table_id,values=one_mail_info.get_disp_values())
+            self.__current_disp_info_ids.append(table_id)
+         else:
+            one_mail_info.disable_check()
+            one_mail_info.cancel_renew_state()
+     #ユーザーがフィルター条件を入力するダイアログに誤った正規表現(特殊文字のエスケープし忘れ,かっこのとじ忘れなど)を入力したとき,このエラーが出る
+     except re.error:
+        messagebox.showerror("正規表現入力エラー","入力された正規表現に誤りがありました。もしかしたら以下の誤りがあるかもしれません。\n ・特殊文字のエスケープし忘れ(例:「*」を検索するなら「\\*」と入力)\n ・かっこの閉じ忘れ\n ・不定長の後読み先読みの使用(本アプリでは利用できません)")
+        self.filter_remove()
+        return False
      
      if len(self.__current_disp_info_ids) == 0:
         messagebox.showerror("エラー","条件に当てはまる項目が1つもありませんでした!")
@@ -341,7 +347,7 @@ class DataTable(tk.Frame):
             filtered_deleted_folder_mail_sum += current_mail_info.deleted_folder_mail_num
          
          #フッターは合計
-         footer_str=",,,%d,%d,%d,%d,,"%(filtered_cumulative_mail_sum,filtered_exists_mail_sum,filtered_receive_mail_sum,filtered_deleted_folder_mail_sum)
+         footer_str="合計,,,,%d,%d,%d,%d,"%(filtered_cumulative_mail_sum,filtered_exists_mail_sum,filtered_receive_mail_sum,filtered_deleted_folder_mail_sum)
          print(footer_str,file=f)
          f.close()
       
