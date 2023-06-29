@@ -24,18 +24,19 @@ class OneMailInfo:
      
      self.__mail_address=each_data[0]
      self.__sender_name=each_data[1]
-     self.__time_str=each_data[2]
-     self.__cumulative_mail_num=int(each_data[3])
-     self.__exists_mail_num=int(each_data[4])
-     self.__receive_mail_num=int(each_data[5])
-     self.__deleted_folder_mail_num=int(each_data[6])
+     self.__first_time_str=each_data[2]
+     self.__latest_time_str=each_data[3]
+     self.__cumulative_mail_num=int(each_data[4])
+     self.__exists_mail_num=int(each_data[5])
+     self.__receive_mail_num=int(each_data[6])
+     self.__deleted_folder_mail_num=int(each_data[7])
      
      #実際にファイルに書き込むときの正式な状態
      self.__state=STATES[0]
      self.__display_only_state=STATES[0]
-     if each_data[7] in STATES:
-       self.__state=each_data[7]
-       self.__display_only_state=each_data[7]
+     if each_data[8] in STATES:
+       self.__state=each_data[8]
+       self.__display_only_state=each_data[8]
        
      self.__one_data_state_has_changed=True
      self.__check_row=CheckedData()
@@ -77,10 +78,10 @@ class OneMailInfo:
    
    #変更結果をファイルに書き込む際の文字列
    def __str__(self):
-     return "%s,%s,%s,%d,%d,%d,%d,%s"%(self.__mail_address,self.__sender_name,self.__time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
+     return "%s,%s,%s,%s,%d,%d,%d,%d,%s"%(self.__mail_address,self.__sender_name,self.__first_time_str,self.__latest_time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
    
    def __repr__(self):
-     return "%s(\"%s,%s,%s,%d,%d,%d,%d,%s\")"%(self.__class__.__name__,self.__mail_address,self.__sender_name,self.__time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
+     return "%s(\"%s,%s,%s,%s,%d,%d,%d,%d,%s\")"%(self.__class__.__name__,self.__mail_address,self.__sender_name,self.__first_time_str,self.__latest_time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
    
    @property
    def data_id(self):
@@ -106,9 +107,13 @@ class OneMailInfo:
      
    
    @property
-   def time_str(self):
-     return self.__time_str
+   def first_time_str(self):
+     return self.__first_time_str
    
+   @property
+   def latest_time_str(self):
+     return self.__latest_time_str
+     
    @property
    def cumulative_mail_num(self):
      return self.__cumulative_mail_num
