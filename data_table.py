@@ -208,7 +208,6 @@ class DataTable(tk.Frame):
             self.__current_disp_info_ids.append(table_id)
          else:
             one_mail_info.disable_check()
-            one_mail_info.cancel_renew_state()
      #ユーザーがフィルター条件を入力するダイアログに誤った正規表現(特殊文字のエスケープし忘れ,かっこのとじ忘れなど)を入力したとき,このエラーが出る
      except re.error:
         messagebox.showerror("正規表現入力エラー","入力された正規表現に誤りがありました。もしかしたら以下の誤りがあるかもしれません。\n ・特殊文字のエスケープし忘れ(例:「*」を検索するなら「\\*」と入力)\n ・かっこの閉じ忘れ\n ・不定長の後読み先読みの使用(本アプリでは利用できません)")
@@ -239,12 +238,14 @@ class DataTable(tk.Frame):
      
      new_state=selectstatedialog(self,self.__mail_info[table_id])
      if len(new_state) != 0:
-      #状態変更したけど,未保存だよ
-      self.__has_changed_unsaved=True
-      self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
       #メールの取り扱いについて,テーブルの表示は新しい状態にするが,実際の変更はまだされていないという状態にする
       self.__mail_info[table_id].re_set_display_state(new_state)
-   
+      if not self.__mail_info[table_id].is_state_renewed():
+        #状態変更したけど,未保存だよ
+        self.__has_changed_unsaved=True
+        self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
+      else:
+        self.__table.set(table_id,self.__col_names[6],new_state)
    def change_check(self,table_id):
      new_check_str=self.__mail_info[table_id].change_check_state()
      self.__table.set(table_id,self.__col_names[0], new_check_str)
@@ -252,23 +253,49 @@ class DataTable(tk.Frame):
    #一時的に行った状態変更（状態変更を行ったものの,まだファイルの保存がすんでいない未反映の状態)を元の状態に戻す
    #状態変更後,ファイルに保存する前まで仮の状態を元に戻す
    #元に戻すものがないときは発動されないよう別のクラスで処理しているので,ここで,戻すものが1つもなく発動されることはない
-   def cancel_changing_renew_state(self):
+   def cancel_changing_renew_state(self,is_all_cancel_ok=False):
      
      for table_id,one_mail_info in enumerate(self.__mail_info):
-        if one_mail_info.display_only_state != one_mail_info.state:
+        if self.__mail_info[table_id].is_state_renewed():
+          continue
+        if table_id in self.__current_disp_info_ids:
           one_mail_info.cancel_renew_state()
           self.__table.set(table_id,self.__col_names[6],one_mail_info.state)
+        elif is_all_cancel_ok:
+          one_mail_info.cancel_renew_state()
          
-   
-     #状態が元に戻ったので,変更でファイルに書き込んで反映されていないことを表すフラグを元に戻す
-     self.__has_changed_unsaved=False
+     if is_all_cancel_ok:
+      #状態が元に戻ったので,変更でファイルに書き込んで反映されていないことを表すフラグを元に戻す
+      self.__has_changed_unsaved=False
    
    def mail_state_multiples_choose(self,new_state):
+     #複数選択がなされたいないまま,つまり単一のメール情報が選択された後に,この状態変更ボタンが押されたら,その1つだけの状態を変化させる
+     if not any(self.__chosen_range):
+        #最後に選択された要素を返す,selectionメソッドは,選択された列のidをそのまま返す(フィルターで表示が減っていても,何列目かを返すわけではない)
+        #ゆえに,current_disp_idsにあてはめなくてよい
+        select_result=self.__table.selection()
+        #列以外に触れられた場合,空タプルが返ってくるため,その際は何もしない
+        if len(select_result) != 0:
+          one_current_chosen_table_id=int(select_result[0]);
+          self.__mail_info[one_current_chosen_table_id].re_set_display_state(new_state)
+          #表示状態だけ変わったときは,未反映フラグを付ける
+          if not self.__mail_info[one_current_chosen_table_id].is_state_renewed():
+            self.__table.set(one_current_chosen_table_id,self.__col_names[6],new_state+"(未反映)")
+            self.__has_changed_unsaved=True
+          else:
+            self.__table.set(one_current_chosen_table_id,self.__col_names[6],new_state)
+          
+        return 
+        
      for table_id,one_mail_info in enumerate(self.__mail_info):
        if one_mail_info.current_row_checked:
          self.__has_changed_unsaved=True
          self.__mail_info[table_id].re_set_display_state(new_state)
-         self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
+         #表示状態だけ変わったときは,未反映フラグを付ける
+         if not self.__mail_info[table_id].is_state_renewed():
+           self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
+         else:
+           self.__table.set(table_id,self.__col_names[6],new_state)
    
    #表示されているところだけチェックを入れる
    def all_enable_check(self):
@@ -285,19 +312,39 @@ class DataTable(tk.Frame):
      self.__table.selection_remove(self.__table.selection())
      
    
+   
+   #フィルターがかかった際に,表示されていないアイテムの中に,状態が変更されているがまだその状態が正式に反映されていないという状態のアイテムが1つでも存在するかどうかを返すメソッド
+   def has_unsaved_items_in_undisplayed(self):
+     for table_id,one_mail_info in enumerate(self.__mail_info):
+        if table_id in self.__current_disp_info_ids:
+           continue
+        if not one_mail_info.is_state_renewed():
+           return True
+     
+     return False
+   
+   
+   
    #こちらは新しく設定が反映された際,フィルターがかかっているかどうかに関係なく,すべての宛先に対する新しいメール取り扱い情報をファイルに記述する 
    def fwrite(self):
   
+    is_all_ok=True
+    if self.has_unsaved_items_in_undisplayed():
+      is_all_ok=messagebox.askyesno("すべて更新しますか?","現在,フィルターがかかっていて表示されていない箇所にも,状態が変更されているものが存在する可能性があります。それらも反映しますか?")
     
     with open(self.__original_file,"w",encoding="utf_8_sig") as f:
    
        #ヘッダは元ファイルのまま書き込む
        f.write(self.__file_contents[0])
        for table_id,one_mail_info in enumerate(self.__mail_info):
-         one_mail_info.renew_state()
-         f.write(str(self.__mail_info[table_id])+"\n")
          if table_id in self.__current_disp_info_ids:
+           one_mail_info.renew_state()
            self.__table.set(table_id,self.__col_names[6],self.__mail_info[table_id].state)
+         elif is_all_ok:
+           one_mail_info.renew_state()
+         
+         f.write(str(self.__mail_info[table_id])+"\n")
+         
        #フッター（合計）もそのまま書き込む
        f.write(self.__file_contents[-1])
        f.close()
@@ -323,9 +370,9 @@ class DataTable(tk.Frame):
     #これが立ったので,アプリ終了時にバックアップを作ることとなる
     self.__once_saved_must_backup=True
     
-    
-    #その後未反映ラベルを解除し,メールの取り扱い状態を変更する
-    self.__has_changed_unsaved=False
+    if is_all_ok:
+     #その後未反映ラベルを解除し,メールの取り扱い状態を変更する
+     self.__has_changed_unsaved=False
     
    
    #こちらはメール宛先の取り扱いの状況に関係なく,フィルターなどで表示を減らした際に,現在フィルターがかかって表示されている宛先のみをファイルに書き込むメソッド
@@ -353,6 +400,7 @@ class DataTable(tk.Frame):
       
          
    
+  
    def create_backup_file(self):
     if self.__once_saved_must_backup:
      now_time=datetime.now()
@@ -389,6 +437,8 @@ class DataTable(tk.Frame):
       
     self.__once_saved_must_backup=False
      
+     
+       
    @property
    def read_file(self):
      return self.__read_file
