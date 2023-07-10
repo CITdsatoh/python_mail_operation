@@ -76,6 +76,11 @@ class OneMailInfo:
      self.__state=self.__display_only_state
    
    
+   #表示されている状態が正式なものであるかどうか(つまり,変更後の新たな状態が正式な反映されているかどうかを調べる)
+   def is_state_renewed(self):
+     return self.__state == self.__display_only_state
+   
+   
    #変更結果をファイルに書き込む際の文字列
    def __str__(self):
      return "%s,%s,%s,%s,%d,%d,%d,%d,%s"%(self.__mail_address,self.__sender_name,self.__first_time_str,self.__latest_time_str,self.__cumulative_mail_num,self.__exists_mail_num,self.__receive_mail_num,self.__deleted_folder_mail_num,self.__state)
