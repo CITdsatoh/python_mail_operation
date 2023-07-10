@@ -459,7 +459,7 @@ class DataTable(tk.Frame):
      now_date=datetime.now()
      first_date="%04d/%02d/%02d"%(now_date.year,now_date.month,now_date.day)
      last_date=first_date
-     match_obj=re.findall("[0-9]{4}/[0-1]?[0-9]/[0-3]?[0-9]",header_items[3])
+     match_obj=re.findall("[0-9]{4}/[0-1]?[0-9]/[0-3]?[0-9]",header_items[4])
      if len(match_obj) != 0:
        first_date=match_obj[0]
        last_date=match_obj[-1]
