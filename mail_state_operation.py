@@ -109,7 +109,7 @@ class MailDataApplication(tk.Tk):
      self.__mail_delete_button["state"]=state_str
      self.__mail_move_button["state"]=state_str
      self.__restore_tmp_state_button["state"]=state_str
-     
+     self.__only_filtered_save_button["state"]=state_str
    
    def set_state(self,event):
      if self.__all_button_enable:
@@ -257,7 +257,12 @@ class MailDataApplication(tk.Tk):
    def restore_tmp_state(self,event):
      if self.__all_button_enable:
        if self.__data_table.has_changed_unsaved:
-          self.__data_table.cancel_changing_renew_state()   
+          is_all_restore=True
+          if self.__data_table.has_unsaved_items_in_undisplayed():
+             is_all_restore=messagebox.askyesno("すべて戻しますか?","フィルターがかかっていて表示されていないものも含めてすべて元に戻しますか?")
+          self.__data_table.cancel_changing_renew_state(is_all_restore)
+          result_message="未反映のものをすべて変更前の状態に戻しました" if is_all_restore else "現在表示されているもののみ元に戻しました"
+          messagebox.showinfo("完了",result_message)   
        else:
           messagebox.showerror("エラー","ファイルに書き込んで保存され反映したものに関しては戻せません\n(戻せるのはメールの取り扱いの設定変更後、ファイルに書き込んでいない未反映のものに限ります)")
       
