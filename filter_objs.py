@@ -183,9 +183,9 @@ class MailOperationStateFilter:
     current_state=mail_info.display_only_state if self.__is_include_temporaily_changed else mail_info.state
     try:
       return self.__is_disp_dict_by_states[current_state]
-    #誤って変な値(削除済みへ移動,保存,完全削除以外の値)がセットされていたら,辞書のkeyがないのでkeyError
+    #誤って変な値(削除済みへ移動,保存,完全削除以外の値)がセットされていたら,辞書のkeyがないのでKeyError
     #その時のメールの取り扱いは「削除済みへ移動」と同じなので,変な値が入ったいるものの表示は,削除済みへ移動が表示されているかどうかに従うこととする
-    except keyError:
+    except KeyError:
       return self.__is_disp_dict_by_states["削除済みへ移動"]
   
   #フィルター後の状態をファイルに書き込む際のどのような条件でフィルターを行ったか書き残しておくためのもの
