@@ -9,7 +9,7 @@ from tkinter import messagebox,filedialog
 from datetime import datetime
 from data_table import DataTable
 from thread_manage import ThreadManage
-from filter_dialog import askfilterpattern,askfiltermailnum
+from filter_dialog import askfilterpattern,askfiltermailnum,askfiltermailoperationstate
 
 class MailDataApplication(tk.Tk):
  
@@ -18,7 +18,7 @@ class MailDataApplication(tk.Tk):
      self.geometry("1536x1024")
      self.title("outlookメール取り扱い")
      
-     self.__title_label=tk.Label(self,text="outlookメール宛先一覧\nここではメールの宛先ごとにoutlook上でのメールを「保存」するか,「完全削除」(復元不可)するか,「削除済みへ移動」（復元可能）をするかを選択し\n、設定することができます.メールの取り扱いを変更したい行をクリックして選択してください.\nまた,表の左側のチェックをつけて下のボタンを押すことで複数一括で設定できます",font=("Helvetica",15))
+     self.__title_label=tk.Label(self,text="outlookメール宛先一覧\nここではメールの宛先ごとにoutlook上でのメールを「保存」するか,「完全削除」(復元不可)するか,「削除済みへ移動」（復元可能）をするかを選択し\n、設定することができます.メールの取り扱いを変更したい行をクリックして選択してください.\nまた,表の左側のチェックをつけて宛先表より下にあるボタンを押すことで複数一括で設定できます",font=("Helvetica",15))
      self.__title_label.place(x=32,y=8)
      
      mail_csv_file=self.__class__.get_desktop_dir()+"\\outlook_mail_dest_list.csv"
@@ -27,15 +27,20 @@ class MailDataApplication(tk.Tk):
      #フィルター結果の絞り込み条件
      self.__filter_conditions=None
      
-     self.__filter_btn=tk.Button(self,text="宛先またはメールアドレスをもとにフィルターする",font=("times",11))
+     self.__filter_label=tk.Label(self,text="フィルター機能:",font=("times",16,"bold"))
+     self.__filter_label.place(x=96,y=112)
+     self.__filter_btn=tk.Button(self,text="宛先またはメールアドレスをもとにフィルターする",font=("times",10))
      self.__filter_btn.bind("<Button-1>",self.table_filter)
-     self.__filter_btn.place(x=512,y=112)
-     self.__num_filter_btn=tk.Button(self,text="メールの件数をもとにフィルターする",font=("times",11))
+     self.__filter_btn.place(x=288,y=112)
+     self.__num_filter_btn=tk.Button(self,text="メールの件数をもとにフィルターする",font=("times",10))
      self.__num_filter_btn.bind("<Button-1>",self.table_filter)
-     self.__num_filter_btn.place(x=896,y=112)
-     self.__filter_remove_btn=tk.Button(self,text="フィルター解除",font=("times",11))
+     self.__num_filter_btn.place(x=640,y=112)
+     self.__state_filter_btn=tk.Button(self,text="メールの取り扱い状態をもとにフィルターする",font=("times",10))
+     self.__state_filter_btn.bind("<Button-1>",self.table_filter)
+     self.__state_filter_btn.place(x=896,y=112)
+     self.__filter_remove_btn=tk.Button(self,text="フィルター解除",font=("times",10))
      self.__filter_remove_btn.bind("<Button-1>",self.table_remove_filter)
-     self.__filter_remove_btn.place(x=1200,y=112)
+     self.__filter_remove_btn.place(x=1216,y=112)
      
      self.__data_table=DataTable(self,mail_csv_file,mail_csv_backup_file)
      self.__data_table.place(x=16,y=144)
@@ -90,6 +95,7 @@ class MailDataApplication(tk.Tk):
      self.__all_button_enable=True
      
      self.protocol("WM_DELETE_WINDOW", self.exit)
+     self.bind("<Escape>",self.exit)
      self.__data_table.mainloop()
      self.mainloop()
      
@@ -152,6 +158,8 @@ class MailDataApplication(tk.Tk):
        new_conditions=askfilterpattern(self.__data_table)
      elif "メールの件数" in event.widget["text"]:
        new_conditions=askfiltermailnum(self.__data_table)
+     elif "メールの取り扱い状態" in event.widget["text"]:
+       new_conditions=askfiltermailoperationstate(self.__data_table)
              
      if new_conditions is not None:
        self.__filter_conditions=new_conditions
