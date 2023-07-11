@@ -246,6 +246,8 @@ class DataTable(tk.Frame):
         self.__table.set(table_id,self.__col_names[6],new_state+"(未反映)")
       else:
         self.__table.set(table_id,self.__col_names[6],new_state)
+        
+        
    def change_check(self,table_id):
      new_check_str=self.__mail_info[table_id].change_check_state()
      self.__table.set(table_id,self.__col_names[0], new_check_str)
@@ -332,8 +334,10 @@ class DataTable(tk.Frame):
     if self.has_unsaved_items_in_undisplayed():
       is_all_ok=messagebox.askyesno("すべて更新しますか?","現在,フィルターがかかっていて表示されていない箇所にも,状態が変更されているものが存在する可能性があります。それらも反映しますか?")
     
-    with open(self.__original_file,"w",encoding="utf_8_sig") as f:
-   
+    f=None
+    #ループの時はwith分を使わない
+    try:
+       f=open(self.__original_file,"w",encoding="utf_8_sig")
        #ヘッダは元ファイルのまま書き込む
        f.write(self.__file_contents[0])
        for table_id,one_mail_info in enumerate(self.__mail_info):
@@ -347,7 +351,9 @@ class DataTable(tk.Frame):
          
        #フッター（合計）もそのまま書き込む
        f.write(self.__file_contents[-1])
-       f.close()
+    finally:
+       if f is not None:
+         f.close()
     
     self.__table.selection_remove(self.__table.selection())  
      
