@@ -164,5 +164,48 @@ class MailNumFilter:
       mail_num_str_full="".join([min_mail_num_str_header,min_mail_num_str_body,max_mail_num_str_header,max_mail_num_str_body])
       
       return "\n".join([header_str,basement_folder_num_str,mail_num_str_full])
-   
+
+
+class MailOperationStateFilter:
+  
+  def __init__(self,disp_tmp_delete_states:bool,disp_save_states:bool,disp_delete_states:bool,is_include_temporaily_changed:bool):
+     self.__is_disp_dict_by_states={}
+     self.__is_disp_dict_by_states["削除済みへ移動"]=disp_tmp_delete_states
+     self.__is_disp_dict_by_states["保存"]=disp_save_states
+     self.__is_disp_dict_by_states["完全削除"]=disp_delete_states
+     
+     #状態の変更はしたけれど,まだ正式に反映されていないものをどのように表示するかを示すフラグ
+     #Trueなら,(まだ反映されていないが),変更後の状態
+     #Falseなら,変更する前のもとの状態
+     self.__is_include_temporaily_changed=is_include_temporaily_changed
+  
+  def is_according_on_conditions(self,mail_info):
+    current_state=mail_info.display_only_state if self.__is_include_temporaily_changed else mail_info.state
+    try:
+      return self.__is_disp_dict_by_states[current_state]
+    #誤って変な値(削除済みへ移動,保存,完全削除以外の値)がセットされていたら,辞書のkeyがないのでkeyError
+    #その時のメールの取り扱いは「削除済みへ移動」と同じなので,変な値が入ったいるものの表示は,削除済みへ移動が表示されているかどうかに従うこととする
+    except keyError:
+      return self.__is_disp_dict_by_states["削除済みへ移動"]
+  
+  #フィルター後の状態をファイルに書き込む際のどのような条件でフィルターを行ったか書き残しておくためのもの
+  def __str__(self):
+     
+     each_state_disp_info=[]
+     for one_state,is_disp in self.__is_disp_dict_by_states.items():
+       do_save_str="する" if is_disp else "しない"
+       each_state_str=f" メールの取り扱いが「{one_state}」のもの:表示{do_save_str}"
+       each_state_disp_info.append(each_state_str)
+     
+     all_info=[]
+     all_info.append("フィルター内容")
+     all_info.extend(each_state_disp_info)
+     
+     if self.__is_include_temporaily_changed:
+       all_info.append(" 未反映の取り扱い:状態変更済みだが正式に反映されていないものも含む")
+     else:
+       all_info.append(" 未反映の取り扱い:状態変更後正式に反映済みのもののみ")
+     
+     
+     return "\n".join(all_info)
       
