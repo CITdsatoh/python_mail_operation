@@ -4,7 +4,7 @@ from tkinter import simpledialog
 import tkinter as tk
 import tkinter.ttk as ttk
 import re
-from filter_objs import PatternMatchingFilter,MailNumFilter
+from filter_objs import PatternMatchingFilter,MailNumFilter,MailOperationStateFilter
 
 
 class FilterMakeDialog(simpledialog.Dialog):
@@ -409,12 +409,152 @@ class MailNumFilterMakeDialog(simpledialog.Dialog):
      
   
 
+
+#現在の宛先ごとのメールの取り扱い状態でのフィルター
+class MailOpeationStateFilterDialog(simpledialog.Dialog):
+   
+   def __init__(self,parent,title=None):
+     super().__init__(parent,title)
+   
+   def buttonbox(self):
+     self.geometry("1024x512")
+     self.__main_label=tk.Label(self,text="宛先ごとのメールの取り扱い状態でのフィルター\n各宛先ごとに「削除済みへ移動」,「保存」,「完全削除」とメールの取り扱い方が設定されますが,\nここではその取り扱い状態によって表示させるものを絞り込みます。\n各状態ごとに「表示させる」か「表示させない」かボタンで\n選んでください",font=("helvetica",16,"bold"))
+     self.__main_label.place(x=8,y=8)
+     
+     #削除済みへ移動
+     self.__tmp_delete_label=tk.Label(self,text="「削除済みへ移動」の宛先:",font=("times",16))
+     self.__tmp_delete_label.place(x=40,y=128)
+     self.__tmp_delete_widget_var=tk.IntVar()
+     #commandに紐づけられている関数は,leftキーやrightキーで表示するしないの選択をスムーズにできるようにするため,現在触れられている(一番最後に触れられた)ラジオボタン(ウィジェット変数)を切り替える関数
+     self.__tmp_delete_disp_radiobtn=tk.Radiobutton(self,text="表示する",variable=self.__tmp_delete_widget_var,value=1,font=("times",16),command=lambda:self.change_operation_widget_var(self.__tmp_delete_widget_var))
+     self.__tmp_delete_disp_radiobtn.place(x=320,y=128)
+     self.__tmp_delete_undisp_radiobtn=tk.Radiobutton(self,text="表示しない",variable=self.__tmp_delete_widget_var,value=0,font=("times",16),command=lambda:self.change_operation_widget_var(self.__tmp_delete_widget_var))
+     self.__tmp_delete_undisp_radiobtn.place(x=480,y=128)
+     self.__tmp_delete_widget_var.set(1)
+     
+     #保存
+     self.__save_label=tk.Label(self,text="「保存」の宛先:",font=("times",16))
+     self.__save_label.place(x=40,y=176)
+     self.__save_widget_var=tk.IntVar()
+     self.__save_disp_radiobtn=tk.Radiobutton(self,text="表示する",variable=self.__save_widget_var,value=1,font=("times",16),command=lambda:self.change_operation_widget_var(self.__save_widget_var))
+     self.__save_disp_radiobtn.place(x=320,y=176)
+     self.__save_undisp_radiobtn=tk.Radiobutton(self,text="表示しない",variable=self.__save_widget_var,value=0,font=("times",16),command=lambda:self.change_operation_widget_var(self.__save_widget_var))
+     self.__save_undisp_radiobtn.place(x=480,y=176)
+     self.__save_widget_var.set(1)
+     
+     #完全削除
+     self.__delete_label=tk.Label(self,text="「完全削除」の宛先:",font=("times",16))
+     self.__delete_label.place(x=40,y=224)
+     self.__delete_widget_var=tk.IntVar()
+     self.__delete_disp_radiobtn=tk.Radiobutton(self,text="表示する",variable=self.__delete_widget_var,value=1,font=("times",16),command=lambda:self.change_operation_widget_var(self.__delete_widget_var))
+     self.__delete_disp_radiobtn.place(x=320,y=224)
+     self.__delete_undisp_radiobtn=tk.Radiobutton(self,text="表示しない",variable=self.__delete_widget_var,value=0,font=("times",16),command=lambda:self.change_operation_widget_var(self.__delete_widget_var))
+     self.__delete_undisp_radiobtn.place(x=480,y=224)
+     self.__delete_widget_var.set(1)
+     
+      
+     self.__warning_label=tk.Label(self,text="",font=("helvetica",13,"bold"),fg="#ff0000")
+     self.__warning_label.place(x=32,y=288)
+     
+     #未反映(選択はしたが,まだ正式に反映されていない者も含むかどうかを選ばせる)
+     self.__include_temporaily_changed_label=tk.Label(self,text="現在,状態の選択はされているけど,正式に反映されていない状態のものは,以前の選択される前の状態を\n基準として,フィルターをかけます。もし,選択した新たな状態でフィルターをしたい場合は\n以下にチェックを入れてください",font=("times",14,"bold"))
+     self.__include_temporaily_changed_label.place(x=16,y=352)
+     self.__include_temporaily_changed_widget_var=tk.BooleanVar()
+     self.__include_temporaily_changed_checkbox=tk.Checkbutton(self,text="未反映(状態変更の選択は行ったが正式反映していないもの)も含む",variable=self.__include_temporaily_changed_widget_var,font=("times",16))
+     self.__include_temporaily_changed_checkbox.place(x=96,y=400)
+     self.__include_temporaily_changed_widget_var.set(False)
+     
+     #leftキーやrightキーで操作する対象のウィジェット
+     self.__current_focused_radiobtn_widget=self.__tmp_delete_widget_var
+     
+     self.__reset_btn=tk.Button(self,text="選択を元に戻す")
+     self.__reset_btn.place(x=256,y=448)
+     self.__reset_btn.bind("<Button-1>",self.reset_all_settings)
+     self.__ok_btn=tk.Button(self, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+     self.__ok_btn.place(x=384,y=448)
+     self.__cancel_btn=tk.Button(self, text="Cancel", width=10, command=self.cancel)
+     self.__cancel_btn.place(x=480,y=448)
+     
+     self.bind("<Return>", self.ok)
+     self.bind("<Escape>", self.cancel)
+     self.bind("<KeyPress>",self.arrow_keys_operation)
+     
+   def reset_all_settings(self,event=None):
+     self.__tmp_delete_widget_var.set(1)
+     self.__save_widget_var.set(1)
+     self.__delete_widget_var.set(1)
+     self.__include_temporaily_changed_widget_var.set(False)
+     self.__warning_label["text"]=""
+   
+   def arrow_keys_operation(self,event):
+     pressed_key=event.keysym
+     if pressed_key == "Left" or pressed_key == "Right":
+        self.__warning_label["text"]=""
+        current_radiobtn_value=self.__current_focused_radiobtn_widget.get()
+        #1が選ばれているなら0へ,0なら1へ
+        next_radiobtn_value=int(not (current_radiobtn_value != 0))
+        self.__current_focused_radiobtn_widget.set(next_radiobtn_value)
+        return
+     
+     widget_index_array=[self.__tmp_delete_widget_var,self.__save_widget_var,self.__delete_widget_var]
+     current_widget_num=widget_index_array.index(self.__current_focused_radiobtn_widget)
+     print(current_widget_num)
+     #垂直方向のキーが押されたときは,フォーカスとなるwidget(選択欄)を変更する
+     if pressed_key == "Up":
+        next_widget_num=(current_widget_num-1)%len(widget_index_array)
+        self.__current_focused_radiobtn_widget=widget_index_array[next_widget_num]
+        return 
+     
+     if pressed_key == "Down":
+        next_widget_num=(current_widget_num+1)%len(widget_index_array)
+        self.__current_focused_radiobtn_widget=widget_index_array[next_widget_num]
+        return 
+      
+     
+    
+   #leftキーやrightキーでスムーズにラジオボタンの選択を,どのウィジェットに対して操作できるようにするかを決定する関数
+   #基本的には一番最後に操作したウィジェットとする (ゆえに,各ウィジェットが操作されたときにcommandで呼ぶようにする) 
+   def change_operation_widget_var(self,radiobtn_widget):
+     self.__current_focused_radiobtn_widget=radiobtn_widget
+   
+   def validate(self):
+     if self.__save_widget_var.get() != 0:
+        return True
+     
+     if self.__tmp_delete_widget_var.get() != 0:
+        return True
+     
+     if self.__delete_widget_var.get() != 0:
+        return True
+     
+     #3つとも「表示しない」,つまり0が選ばれていた時,表示するものが何もなくなってしまう
+     #その忠告をする
+     self.__warning_label["text"]="注意：3つともすべて,「表示しない」が表示されているため,このままだと表示されるものが何一つ\nなくなってしまいます。少なくともいずれか1つは「表示する」を選択してください"
+     return False
+   
+   def apply(self):
+     #見やすさからチェック式ではなく,選択式なので現在intVar(1:表示する,0:表示しない)になっている。呼び出し先でフィルター処理をしやすいよう,booleanに変換する
+     do_disp_tmp_delete_states=(self.__tmp_delete_widget_var.get() != 0)
+     do_disp_save_states=(self.__save_widget_var.get() != 0)
+     do_disp_delete_states=(self.__delete_widget_var.get() != 0)
+     
+     is_include_temporaily_changed=self.__include_temporaily_changed_widget_var.get()
+     
+     self.result=MailOperationStateFilter(do_disp_tmp_delete_states,do_disp_save_states,do_disp_delete_states,is_include_temporaily_changed)
+    
+     
+     
+       
 def askfilterpattern(parent):
    
-   fd=FilterMakeDialog(parent,"絞り込み条件の指定")
+   fd=FilterMakeDialog(parent,"キーワードによる絞り込み条件の指定")
    return fd.result
 
 def askfiltermailnum(parent):
    nfd=MailNumFilterMakeDialog(parent,"累積のメール数での絞り込み条件の指定")
    return nfd.result
- 
+
+
+def askfiltermailoperationstate(parent):
+   sfd=MailOpeationStateFilterDialog(parent,"宛先ごとのメール処理の取り扱い状態での絞り込み条件の指定")
+   return sfd.result
