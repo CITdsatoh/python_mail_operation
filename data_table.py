@@ -355,6 +355,8 @@ class DataTable(tk.Frame):
        if f is not None:
          f.close()
     
+    del f
+    
     self.__table.selection_remove(self.__table.selection())  
      
     #バックアップファイルの方は安全上読み取り専用にしている。なのでここでいったん読み取り専用を解除する
@@ -388,7 +390,9 @@ class DataTable(tk.Frame):
       filtered_receive_mail_sum=0
       filtered_deleted_folder_mail_sum=0
       
-      with open(write_file_path,"w",encoding="utf_8_sig") as f:
+      f=None
+      try:
+         f=open(write_file_path,"w",encoding="utf_8_sig")
          #ヘッダは元ファイルのまま書き込む
          f.write(self.__file_contents[0])
          for one_table_id in self.__current_disp_info_ids:
@@ -402,7 +406,11 @@ class DataTable(tk.Frame):
          #フッターは合計
          footer_str="合計,,,,%d,%d,%d,%d,"%(filtered_cumulative_mail_sum,filtered_exists_mail_sum,filtered_receive_mail_sum,filtered_deleted_folder_mail_sum)
          print(footer_str,file=f)
-         f.close()
+      finally:
+         if f is not None:
+           f.close()
+      
+      del f
       
          
    
