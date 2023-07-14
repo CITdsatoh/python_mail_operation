@@ -7,7 +7,7 @@ import unicodedata
 class PatternMatchingFilter:
 
    PATTERN_MATCHING_NAMES={"p":"部分一致","f":"前方一致","b":"後方一致","e":"完全一致","wc":"ワイルドカード","re":"正規表現"}
-   BASEMENT_NAMES={"name":"宛名","mail_address":"メールアドレス"}
+   BASEMENT_NAMES={"name":"宛名","mail_address":"メールアドレス","both":"宛名とメールアドレス"}
    PATTERN_MATCHING_JAPANESE={"p":"のいずれかがつく","f":"のいずれかから始まる","b":"のいずれかで終わる","e":"のいずれかに一致する","wc":"のいずれかのパターンにマッチする","re":"のいずれかの表現にマッチする","np":"のいずれもつかない","nf":"のいずれからでも始まらない","nb":"のいずれでも終わらない","ne":"のいずれにも一致しない","nwc":"のいずれのパターンにもマッチしない","nre":"のいずれの表現にもマッチしない"}
    
    def __init__(self,comp_basement:str,match_pattern:str,expressions,is_ignore_case:bool,is_remove_space:bool,is_ignore_char_width:bool):
@@ -25,16 +25,25 @@ class PatternMatchingFilter:
       self.__is_ignore_char_width=is_ignore_char_width
    
    def is_according_on_conditions(self,mail_info):
-      comp=mail_info.escaped_sender_name if self.__comp_basement == "name" else mail_info.escaped_mail_address
-      #メールアドレスや宛名側の空白を取り除く指定があった場合,ここで取り除く
-      if self.__is_remove_space:
-          comp=re.sub("\\s+","",comp)
-      for one_search in self.__expressions:
-        #「肯定」検索の時は,このメソッド(入力したパターンに文字列があっているか)が1つでもTrueを返せばTrue
-        #一方「否定」検索の時は,「肯定」検索のときにTrueが返されるパターンを満たしてはいけないので,この「肯定」検索の時のパターンしか返さないメソッドが1つでもTrueを返せばFalseになる
-        if self.is_pattern_match(one_search,comp):
-           #f_patternがnから始まらないものは「肯定」検索しているのでTrue,nから始まってしまうものは「否定」検索しているので,False
-           return not self.__match_pattern.startswith("n")
+   
+      #bothが入ったときは,宛名とメールアドレスの両方を調べることにする(どちらかに当てはまれば表示)
+      comps=[]
+      if self.__comp_basement in ("name","both"):
+        comps.append(mail_info.escaped_sender_name)
+      
+      if self.__comp_basement in ("mail_address","both"):
+        comps.append(mail_info.escaped_mail_address)
+      
+      for comp in comps:
+        #メールアドレスや宛名側の空白を取り除く指定があった場合,ここで取り除く
+        if self.__is_remove_space:
+            comp=re.sub("\\s+","",comp)
+        for one_search in self.__expressions:
+          #「肯定」検索の時は,このメソッド(入力したパターンに文字列があっているか)が1つでもTrueを返せばTrue
+          #一方「否定」検索の時は,「肯定」検索のときにTrueが返されるパターンを満たしてはいけないので,この「肯定」検索の時のパターンしか返さないメソッドが1つでもTrueを返せばFalseになる
+          if self.is_pattern_match(one_search,comp):
+             #f_patternがnから始まらないものは「肯定」検索しているのでTrue,nから始まってしまうものは「否定」検索しているので,False
+             return not self.__match_pattern.startswith("n")
       
       #逆に１つも満たさなかった場合,「肯定」の時はFalse,「否定」の時はTrue
       return self.__match_pattern.startswith("n")
