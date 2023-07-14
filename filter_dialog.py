@@ -45,7 +45,7 @@ class FilterMakeDialog(simpledialog.Dialog):
      self.__guide_label=tk.Label(self,text="以下の入力欄に絞り込んで表示させたい条件を入力してください。,（カンマ)で区切った場合,複数の条件を指定できます\nなお,複数指定した場合,いずれか1つ以上にあてはまるものに絞り込みます\nまた、,(カンマ）それ自体を含むものを検索したい場合はダブルクオーテーションで囲って,「\",\"」というようにしてください",font=("times",12,"bold"))
      
      self.__filter_obj_var=tk.StringVar()
-     self.__filter_obj_select=ttk.Combobox(self,textvariable=self.__filter_obj_var,height=2,state="readonly",values=("メールアドレス","宛名"))
+     self.__filter_obj_select=ttk.Combobox(self,textvariable=self.__filter_obj_var,height=2,state="readonly",values=("メールアドレス","宛名","メールアドレスと宛名"))
      self.__filter_obj_select.bind("<<ComboboxSelected>>",self.add_filter_basement_select_focus)
      
      
@@ -117,8 +117,12 @@ class FilterMakeDialog(simpledialog.Dialog):
    
    def apply(self):
      
-       #何をもとにしてフィルターをかけるかを表す(nameは宛名,mail_addressはメールアドレス)
-       filter_base="name" if self.__filter_obj_select.get() == "宛名" else "mail_address"
+       #何をもとにしてフィルターをかけるかを表す(nameは宛名,mail_addressはメールアドレス,bothは宛名とメールアドレスの両方(のうちどちらか一方に当てはまるか))
+       filter_base="both"
+       if self.__filter_obj_select.get() == "宛名":
+         filter_base="name"
+       elif self.__filter_obj_select.get() == "メールアドレス":
+         filter_base="mail_address"
        
        
        input_patterns=self.get_filter_patterns()
